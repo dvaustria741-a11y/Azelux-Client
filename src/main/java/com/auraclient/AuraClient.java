@@ -29,7 +29,7 @@ public class AuraClient implements ClientModInitializer {
                 "key.auraclient.opengui",
                 InputUtil.Type.KEYSYM,
                 GLFW.GLFW_KEY_RIGHT_SHIFT,
-                "category.auraclient"
+                new KeyBinding.Category("category.auraclient")
         ));
 
         ModuleManager.init();
