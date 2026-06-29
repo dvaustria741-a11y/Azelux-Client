@@ -121,8 +121,10 @@ public class AuraClickGui extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mx, double my, int btn) {
-        if (btn != 0) return super.mouseClicked(mx, my, btn);
+    public boolean mouseClicked(net.minecraft.client.gui.Click click, boolean doubled) {
+        double mx = click.x();
+        double my = click.y();
+        if (click.button() != 0) return super.mouseClicked(click, doubled);
 
         // close button
         if (mx >= wx + WIN_W - 25 && mx <= wx + WIN_W - 7
@@ -153,7 +155,7 @@ public class AuraClickGui extends Screen {
             }
         }
 
-        return super.mouseClicked(mx, my, btn);
+        return super.mouseClicked(click, doubled);
     }
 
     @Override public boolean shouldPause()       { return false; }
