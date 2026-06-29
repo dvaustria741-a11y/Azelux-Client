@@ -58,7 +58,7 @@ public class AimAssist extends Module {
 
     private void aimAt(MinecraftClient client, LivingEntity target) {
         Vec3d eyes   = client.player.getEyePos();
-        Vec3d center = target.getPos().add(0, target.getHeight() * 0.5, 0);
+        Vec3d center = new Vec3d(target.getX(), target.getY() + target.getHeight() * 0.5, target.getZ());
         Vec3d d      = center.subtract(eyes);
 
         double horizDist  = Math.sqrt(d.x * d.x + d.z * d.z);
