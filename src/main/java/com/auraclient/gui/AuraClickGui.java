@@ -555,7 +555,8 @@ public class AuraClickGui extends Screen {
     }
 
     @Override
-    public boolean charTyped(char chr) {
+    public boolean charTyped(net.minecraft.client.input.CharInput input) {
+        char chr = (char) input.codepoint();
         if (chr == '\b') {
             if (!searchQuery.isEmpty())
                 searchQuery = searchQuery.substring(0, searchQuery.length() - 1);
