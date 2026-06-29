@@ -1,15 +1,17 @@
 package com.auraclient.module.render;
 
 import com.auraclient.module.Module;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.entity.state.EntityRenderState;
+import net.minecraft.client.render.entity.state.LivingEntityRenderState;
+import net.minecraft.client.render.state.CameraRenderState;
+import net.minecraft.client.render.state.WorldRenderState;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.EntityType;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
 import org.joml.Matrix4f;
@@ -20,30 +22,40 @@ public class ESP extends Module {
         WorldRenderEvents.AFTER_ENTITIES.register(this::render);
     }
 
+    // As of 1.21.9+, the world renderer no longer hands rendering code a live World/Camera —
+    // it hands over a frozen per-frame WorldRenderState instead, populated with lightweight
+    // EntityRenderState snapshots. We read entity position/size/type straight off those instead
+    // of pulling a live Entity from the world.
     private void render(WorldRenderContext ctx) {
-        if (!isEnabled() || ctx.world() == null || ctx.matrixStack() == null) return;
+        if (!isEnabled()) return;
 
-        MatrixStack matrices = ctx.matrixStack();
-        VertexConsumerProvider.Immediate vcp = ctx.consumers();
-        if (vcp == null) return;
+        WorldRenderState worldState = ctx.worldState();
+        if (worldState == null) return;
 
-        Vec3d cam = ctx.camera().getPos();
+        MatrixStack matrices = ctx.matrices();
+        VertexConsumerProvider vcp = ctx.consumers();
+        if (matrices == null || vcp == null) return;
 
-        for (Entity entity : ctx.world().getEntities()) {
-            if (!(entity instanceof LivingEntity living) || living.isDead()) continue;
+        CameraRenderState cameraState = worldState.cameraRenderState;
+        if (cameraState == null || cameraState.pos == null) return;
+        Vec3d cam = cameraState.pos;
+
+        for (EntityRenderState state : worldState.entityRenderStates) {
+            if (!(state instanceof LivingEntityRenderState) || state.invisible) continue;
 
             float r, g, b;
-            if (entity instanceof PlayerEntity) {
+            if (state.entityType == EntityType.PLAYER) {
                 r = 0.39f; g = 0.16f; b = 1.0f;
             } else {
                 r = 0.1f; g = 0.9f; b = 0.1f;
             }
 
             matrices.push();
-            matrices.translate(entity.getX() - cam.x, entity.getY() - cam.y, entity.getZ() - cam.z);
+            matrices.translate(state.x - cam.x, state.y - cam.y, state.z - cam.z);
 
-            Box box = entity.getBoundingBox().offset(-entity.getX(), -entity.getY(), -entity.getZ());
-            VertexConsumer lines = vcp.getBuffer(RenderLayer.LINES);
+            float hw = state.width / 2f;
+            Box box = new Box(-hw, 0, -hw, hw, state.height, hw);
+            VertexConsumer lines = vcp.getBuffer(RenderLayer.getLines());
             drawBox(matrices, lines, box, r, g, b);
 
             matrices.pop();
