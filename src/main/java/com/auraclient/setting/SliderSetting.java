@@ -11,4 +11,8 @@ public class SliderSetting extends Setting<Double> {
 
     public double getMin() { return min; }
     public double getMax() { return max; }
+
+    public void setValue(double v) {
+        this.value = Math.max(min, Math.min(max, Math.round(v * 10.0) / 10.0));
+    }
 }
