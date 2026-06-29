@@ -13,7 +13,7 @@ public class Sprint extends Module {
         if (client.player == null) return;
         var input = client.player.input;
         if (input == null) return;
-        if (input.movementForward > 0f && !client.player.isSprinting()
+        if (input.getMovementInput().y > 0f && !client.player.isSprinting()
                 && !client.player.isSubmergedInWater()
                 && !client.player.isTouchingWater()) {
             client.player.setSprinting(true);
