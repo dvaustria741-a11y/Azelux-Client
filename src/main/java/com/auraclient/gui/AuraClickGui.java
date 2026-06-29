@@ -532,19 +532,20 @@ public class AuraClickGui extends Screen {
     }
 
     @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
+    public boolean mouseDragged(net.minecraft.client.gui.Click click, double deltaX, double deltaY) {
         if (draggingSlider != null) {
+            double mouseX = click.x();
             double t = Math.max(0, Math.min(1, (mouseX - sliderTrackX) / sliderTrackW));
             draggingSlider.setValue(draggingSlider.getMin() + t * (draggingSlider.getMax() - draggingSlider.getMin()));
             return true;
         }
-        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
+        return super.mouseDragged(click, deltaX, deltaY);
     }
 
     @Override
-    public boolean mouseReleased(net.minecraft.client.gui.Click click, boolean doubled) {
+    public boolean mouseReleased(net.minecraft.client.gui.Click click) {
         draggingSlider = null;
-        return super.mouseReleased(click, doubled);
+        return super.mouseReleased(click);
     }
 
     @Override
@@ -554,7 +555,7 @@ public class AuraClickGui extends Screen {
     }
 
     @Override
-    public boolean charTyped(char chr, int modifiers) {
+    public boolean charTyped(char chr) {
         if (chr == '\b') {
             if (!searchQuery.isEmpty())
                 searchQuery = searchQuery.substring(0, searchQuery.length() - 1);
