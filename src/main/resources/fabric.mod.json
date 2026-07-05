@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
-  "id": "auraclient",
+  "id": "azeluxclient",
   "version": "${version}",
-  "name": "AuraClient",
-  "description": "Feature-rich Minecraft utility client for 1.21.11. Lunar-style UI, mobile-first — supports Zalith Launcher 1/2, PojavLauncher, and more.",
+  "name": "Azelux Client",
+  "description": "Feature-rich Minecraft utility client for 1.21.11. Lunar-style UI, Right Shift to open — supports Zalith Launcher 1/2, PojavLauncher, and more.",
   "authors": ["Zen"],
   "contact": {
-    "sources": "https://github.com/dvaustria741-a11y/AuraClient"
+    "sources": "https://github.com/dvaustria741-a11y/Azelux-Client"
   },
   "license": "MIT",
   "environment": "client",
   "entrypoints": {
-    "client": ["com.auraclient.AuraClient"]
+    "client": ["com.azeluxclient.AzeluxClient"]
   },
-  "mixins": ["auraclient.mixins.json"],
+  "mixins": ["azeluxclient.mixins.json"],
   "depends": {
     "fabricloader": ">=0.15.0",
     "minecraft": "~1.21.11",
