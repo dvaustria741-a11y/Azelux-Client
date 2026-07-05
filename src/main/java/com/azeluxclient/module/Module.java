@@ -1,13 +1,20 @@
 package com.azeluxclient.module;
 
 import com.azeluxclient.setting.Setting;
-import net.minecraft.client.MinecraftClient;
-
 import java.util.ArrayList;
 import java.util.List;
 
 public abstract class Module {
-    protected static final MinecraftClient mc = MinecraftClient.getInstance();
+    public enum Category {
+        COMBAT("Combat"),
+        MOVEMENT("Movement"),
+        RENDER("Render"),
+        HUD("HUD"),
+        MISC("Misc");
+
+        public final String display;
+        Category(String d) { this.display = d; }
+    }
 
     private final String name;
     private final String description;
@@ -15,11 +22,17 @@ public abstract class Module {
     private boolean enabled = false;
     protected final List<Setting<?>> settings = new ArrayList<>();
 
-    public Module(String name, String description, Category category) {
+    protected Module(String name, String description, Category category) {
         this.name = name;
         this.description = description;
         this.category = category;
     }
+
+    public String getName()        { return name; }
+    public String getDescription() { return description; }
+    public Category getCategory()  { return category; }
+    public boolean isEnabled()     { return enabled; }
+    public List<Setting<?>> getSettings() { return settings; }
 
     public void toggle() {
         enabled = !enabled;
@@ -28,24 +41,5 @@ public abstract class Module {
 
     public void onEnable()  {}
     public void onDisable() {}
-    public void onTick(MinecraftClient client) {}
-
-    protected <T extends Setting<?>> T register(T s) { settings.add(s); return s; }
-
-    public String getName()           { return name; }
-    public String getDescription()    { return description; }
-    public Category getCategory()     { return category; }
-    public boolean isEnabled()        { return enabled; }
-    public void setEnabled(boolean v) { this.enabled = v; }
-    public List<Setting<?>> getSettings() { return settings; }
-
-    public enum Category {
-        COMBAT("Combat"),
-        MOVEMENT("Movement"),
-        RENDER("Render"),
-        MISC("Misc");
-
-        public final String display;
-        Category(String display) { this.display = display; }
-    }
+    public void onTick(net.minecraft.client.MinecraftClient client) {}
 }

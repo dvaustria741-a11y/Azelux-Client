@@ -427,19 +427,28 @@ public class AzeluxClickGui extends Screen {
     // ══════════════════════════════════════════════════════════════════════════
     private String getModuleIcon(String name) {
         return switch (name.toLowerCase()) {
-            case "killaura"    -> "\u2316";
-            case "velocity"    -> "\u21BA";
-            case "reach"       -> "\u2694";
-            case "speed"       -> "\u21C9";
-            case "sprint"      -> "\u25B7";
-            case "nofall"      -> "\u2193";
-            case "esp"         -> "\u25CE";
-            case "fullbright"  -> "\u2600";
-            case "zoom"        -> "\u2299";
-            case "antiafk"     -> "\u21BB";
-            case "fastplace"   -> "\u229E";
-            case "aimassist"   -> "\u2609";
-            default            -> "\u25C6";
+            case "killaura"         -> "\u2316";
+            case "velocity"         -> "\u21BA";
+            case "reach"            -> "\u2694";
+            case "speed"            -> "\u21C9";
+            case "sprint"           -> "\u25B7";
+            case "nofall"           -> "\u2193";
+            case "esp"              -> "\u25CE";
+            case "fullbright"       -> "\u2600";
+            case "zoom"             -> "\u2299";
+            case "antiafk"          -> "\u21BB";
+            case "fastplace"        -> "\u229E";
+            case "aimassist"        -> "\u2609";
+            case "armorhud"         -> "\u26E8";
+            case "directionhud"     -> "\u2316";
+            case "durabilityviewer" -> "\u2692";
+            case "totemcounter"     -> "\u2665";
+            case "potioncounter"    -> "\u2697";
+            case "serveraddress"    -> "\u2601";
+            case "movingstatus"     -> "\u25BA";
+            case "customcrosshair"  -> "\u271A";
+            case "chunkborders"     -> "\u25A3";
+            default                 -> "\u25C6";
         };
     }
 
