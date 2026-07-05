@@ -1,6 +1,7 @@
 package com.azeluxclient.module;
 
 import com.azeluxclient.setting.Setting;
+import net.minecraft.client.MinecraftClient;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,6 +29,15 @@ public abstract class Module {
         this.category = category;
     }
 
+    // Convenience: register a setting and return it (allows field initializers)
+    protected <T extends Setting<?>> T register(T setting) {
+        settings.add(setting);
+        return setting;
+    }
+
+    // Shorthand for MinecraftClient.getInstance() so subclasses can use mc()
+    protected MinecraftClient mc() { return MinecraftClient.getInstance(); }
+
     public String getName()        { return name; }
     public String getDescription() { return description; }
     public Category getCategory()  { return category; }
@@ -41,5 +51,5 @@ public abstract class Module {
 
     public void onEnable()  {}
     public void onDisable() {}
-    public void onTick(net.minecraft.client.MinecraftClient client) {}
+    public void onTick(MinecraftClient client) {}
 }
