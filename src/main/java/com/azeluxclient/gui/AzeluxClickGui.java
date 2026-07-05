@@ -122,7 +122,7 @@ public class AzeluxClickGui extends Screen {
         // Logo
         ctx.fill(wx, wy, wx + SIDEBAR_W - 1, wy + HEAD_H, 0xFF08081A);
         ctx.fill(wx, wy, wx + 3, wy + HEAD_H, C_ACCENT_DIM); // left accent bar
-        ctx.drawTexture(net.minecraft.client.render.RenderLayer::getGui, TEX_LOGO, wx + 8, wy + 8, 0.0F, 0.0F, 36, 36, 512, 512);
+        ctx.drawTexture(net.minecraft.client.render.RenderPipelines.GUI_TEXTURED, TEX_LOGO, wx + 8, wy + 8, 0.0F, 0.0F, 36, 36, 512, 512);
         ctx.drawText(textRenderer, "AzeluxClient", wx + 50, wy + 12, C_ACCENT, false);
         ctx.drawText(textRenderer, "v1.0.0", wx + 52, wy + 24, C_TXT_DIM, false);
         ctx.fill(wx + 10, wy + HEAD_H - 1, wx + SIDEBAR_W - 10, wy + HEAD_H, C_BORDER);
@@ -217,7 +217,7 @@ public class AzeluxClickGui extends Screen {
 
             int bg = sel ? C_BG_CARD_SEL : (hov ? C_BG_CARD_HV : C_BG_CARD);
             ctx.fill(cardX, cardY, cardX + cardW, cardY + CARD_H, bg);
-            ctx.drawTexture(net.minecraft.client.render.RenderLayer::getGui, TEX_CARD_BG, cardX, cardY, 0.0F, 0.0F, cardW, CARD_H, cardW, CARD_H);
+            ctx.drawTexture(net.minecraft.client.render.RenderPipelines.GUI_TEXTURED, TEX_CARD_BG, cardX, cardY, 0.0F, 0.0F, cardW, CARD_H, cardW, CARD_H);
 
             // top border on selected
             if (sel) ctx.fill(cardX, cardY, cardX + cardW, cardY + 1, C_ACCENT_DIM);
@@ -427,7 +427,7 @@ public class AzeluxClickGui extends Screen {
         ctx.fill(x, y, x + w, y + 4, 0xFF252550);
         ctx.fill(x, y, x + filled, y + 4, C_ACCENT_DIM);
         int kx = x + filled - 5;
-        ctx.drawTexture(net.minecraft.client.render.RenderLayer::getGui, TEX_SLIDER, kx, y - 4, 0.0F, 0.0F, 10, 12, 10, 12);
+        ctx.drawTexture(net.minecraft.client.render.RenderPipelines.GUI_TEXTURED, TEX_SLIDER, kx, y - 4, 0.0F, 0.0F, 10, 12, 10, 12);
     }
 
     // ══════════════════════════════════════════════════════════════════════════
