@@ -27,6 +27,7 @@ public class AzeluxClickGui extends Screen {
     private static final Identifier T_SLIDER       = tex("slider_knob");
     private static final Identifier T_SWITCH_ON    = tex("switch_on");
     private static final Identifier T_SWITCH_OFF   = tex("switch_off");
+    private static final Identifier T_SWITCH_BG    = tex("switch_background");
 
     private static Identifier tex(String name) {
         return Identifier.of("azeluxclient", "textures/gui/" + name + ".png");
@@ -222,20 +223,23 @@ public class AzeluxClickGui extends Screen {
         ctx.drawText(textRenderer, "GENERAL", gx, gy, C_WHITE, false);
         ctx.fill(gx, gy + 12, gx + 200, gy + 13, 0x44FFFFFF);
 
-        int swW = 40, swH = 20;
+        int bgW = 30, bgH = 12, togW = 20;
+        int swX = gx + settW - bgW - 4;
         int sy = gy + 20;
 
         // Hide Azelux Loading Screen
-        ctx.drawText(textRenderer, "Hide Azelux Loading Screen", gx + 4, sy + 4, C_WHITE, false);
-        int swX1 = gx + settW - swW - 4;
-        texScaled(ctx, hideLoadingScreen ? T_SWITCH_ON : T_SWITCH_OFF, swX1, sy, swW, swH, swW, swH);
-        sy += 28;
+        ctx.drawText(textRenderer, "Hide Azelux Loading Screen", gx + 4, sy + 2, C_WHITE, false);
+        texScaled(ctx, T_SWITCH_BG, swX, sy, bgW, bgH, 60, 20);
+        texScaled(ctx, hideLoadingScreen ? T_SWITCH_ON : T_SWITCH_OFF,
+                  hideLoadingScreen ? swX + (bgW - togW) : swX, sy, togW, bgH, 40, 20);
+        sy += 20;
 
         // Show Nametag in Third Person
-        ctx.drawText(textRenderer, "Show Nametag in Third Person", gx + 4, sy + 4, C_WHITE, false);
-        int swX2 = gx + settW - swW - 4;
-        texScaled(ctx, showNametagPerson ? T_SWITCH_ON : T_SWITCH_OFF, swX2, sy, swW, swH, swW, swH);
-        sy += 28;
+        ctx.drawText(textRenderer, "Show Nametag in Third Person", gx + 4, sy + 2, C_WHITE, false);
+        texScaled(ctx, T_SWITCH_BG, swX, sy, bgW, bgH, 60, 20);
+        texScaled(ctx, showNametagPerson ? T_SWITCH_ON : T_SWITCH_OFF,
+                  showNametagPerson ? swX + (bgW - togW) : swX, sy, togW, bgH, 40, 20);
+        sy += 20;
 
         ctx.drawText(textRenderer, "Made by Azelux Team  <3", gx, sy + 8, C_GRAY, false);
     }
@@ -265,11 +269,18 @@ public class AzeluxClickGui extends Screen {
         for (Setting<?> s : optModule.getSettings()) {
             if (sy > panY + panH - 20) break;
             if (s instanceof BooleanSetting bs) {
-                ctx.drawText(textRenderer, bs.getName(), gx + 4, sy + 4, C_WHITE, false);
-                int swW = 40, swH = 20;
-                int swX = gx + settW - swW - 4;
-                texScaled(ctx, bs.getValue() ? T_SWITCH_ON : T_SWITCH_OFF, swX, sy - 2, swW, swH, swW, swH);
-                sy += 30;
+                ctx.drawText(textRenderer, bs.getName(), gx + 4, sy + 2, C_WHITE, false);
+                // Switch: background pill (30×12) + sliding indicator (20×12)
+                int bgW = 30, bgH = 12, togW = 20;
+                int swX = gx + settW - bgW - 4;
+                int swY = sy - 2;
+                texScaled(ctx, T_SWITCH_BG, swX, swY, bgW, bgH, 60, 20);
+                if (bs.getValue()) {
+                    texScaled(ctx, T_SWITCH_ON, swX + (bgW - togW), swY, togW, bgH, 40, 20);
+                } else {
+                    texScaled(ctx, T_SWITCH_OFF, swX, swY, togW, bgH, 40, 20);
+                }
+                sy += 20;
             } else if (s instanceof SliderSetting ss) {
                 // Label + value
                 String label = ss.getName() + "  " + String.format("%.1f", ss.getValue());
@@ -321,12 +332,12 @@ public class AzeluxClickGui extends Screen {
             int sy = gy + 40;
             for (Setting<?> s : optModule.getSettings()) {
                 if (s instanceof BooleanSetting bs) {
-                    int swW = 40, swH = 20;
-                    int swX = gx + settW - swW - 4;
-                    if (mx >= swX && mx < swX + swW && my >= sy - 2 && my < sy + swH - 2) {
+                    int bgW = 30, bgH = 12;
+                    int swX = gx + settW - bgW - 4;
+                    if (mx >= swX && mx < swX + bgW && my >= sy - 2 && my < sy + bgH - 2) {
                         bs.toggle(); return true;
                     }
-                    sy += 30;
+                    sy += 20;
                 } else if (s instanceof SliderSetting ss) {
                     sy += 18;
                     int slW = settW - 16;
@@ -346,13 +357,13 @@ public class AzeluxClickGui extends Screen {
         if (activeTab == 1 && optModule == null) {
             int gx = panX + sideW + PAD + 1, gy = panY + navH + PAD;
             int settW = panW - sideW - PAD * 2 - 1;
-            int swW = 40, swH = 20;
-            int swX = gx + settW - swW - 4;
-            int sy1 = gy + 20, sy2 = gy + 48;
-            if (mx >= swX && mx < swX + swW && my >= sy1 && my < sy1 + swH) {
+            int bgW = 30, bgH = 12;
+            int swX = gx + settW - bgW - 4;
+            int sy1 = gy + 20, sy2 = gy + 40;
+            if (mx >= swX && mx < swX + bgW && my >= sy1 && my < sy1 + bgH) {
                 hideLoadingScreen = !hideLoadingScreen; return true;
             }
-            if (mx >= swX && mx < swX + swW && my >= sy2 && my < sy2 + swH) {
+            if (mx >= swX && mx < swX + bgW && my >= sy2 && my < sy2 + bgH) {
                 showNametagPerson = !showNametagPerson; return true;
             }
         }
