@@ -448,13 +448,13 @@ public class AzeluxClickGui extends Screen {
             case "shiny_pots", "shinypots"                               -> "shiny_pots";
             case "potion_counter", "potioncounter"                        -> "potion_counter";
             case "mods_list", "modslist"                                 -> "mods_list";
-            case "custom_crosshair", "customcrosshair"                    -> "custom_crosshair";
+            case "custom_crosshair", "customcrosshair"                    -> "zoom";
             case "hit_color", "hitcolor"                                 -> "hit_color";
             case "tab_list", "tablist"                                   -> "tab_list";
             case "inventory_hud", "inventoryhud"                         -> "inventory_hud";
             case "durability_viewer", "durabilityviewer"                  -> "durability_viewer";
             case "moving_status", "movingstatus"                         -> "moving_status";
-            case "block_outline", "blockoutline"                         -> "block_outline";
+            case "block_outline", "blockoutline"                         -> "esp";
             case "chunkmap", "chunk_map"                                 -> "chunkmap";
             case "chunk_borders", "chunkborders"                         -> "chunk_borders";
             case "offhand_hud", "offhandhud"                             -> "offhand_hud";
@@ -462,11 +462,15 @@ public class AzeluxClickGui extends Screen {
             case "left_hand", "lefthand"                                 -> "left_hand";
             case "framex"                                                 -> "framex";
             case "custom_scoreboard", "customscoreboard"                  -> "custom_scoreboard";
-            case "killaura", "kill_aura"                                 -> "hit_color";
-            case "aimassist", "aim_assist"                               -> "direction_hud";
-            case "reach"                                                  -> "hitbox";
+            case "killaura", "kill_aura"                                 -> "killaura";
+            case "aimassist", "aim_assist"                               -> "aimassist";
+            case "reach"                                                  -> "reach";
             case "speed", "sprint"                                       -> "moving_status";
-            case "nofall", "no_fall"                                     -> "mods_list";
+            case "velocity"                                                   -> "velocity";
+            case "nofall", "no_fall"                                          -> "nofall";
+            case "antiafk", "anti_afk"                                        -> "antiafk";
+            case "fastplace", "fast_place"                                    -> "fastplace";
+            
             case "esp"                                                    -> "block_outline";
             case "zoom"                                                   -> "custom_crosshair";
             default                                                       -> null;
