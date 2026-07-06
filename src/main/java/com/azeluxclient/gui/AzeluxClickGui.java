@@ -48,8 +48,6 @@ public class AzeluxClickGui extends Screen {
     private static final int C_NAV       = 0x660D0D1E;
     private static final int C_CARD_TINT = 0x22FFFFFF;
     private static final int C_ACCENT    = 0xFFC084FC;
-    // Darker tint used behind the icon area in each card
-    private static final int C_ICON_BG   = 0x33000000;
 
     // ── Tabs ──────────────────────────────────────────────────────────────────
     private static final String[] TABS = { "MODS", "SETTINGS", "EMOTES" };
@@ -80,7 +78,6 @@ public class AzeluxClickGui extends Screen {
 
     @Override
     protected void init() {
-        // Match original Bedrock panel size: ~93% wide, ~89% tall
         panW  = (int)(width  * 0.93f);
         panH  = (int)(height * 0.89f);
         panX  = (width  - panW) / 2;
@@ -89,7 +86,6 @@ public class AzeluxClickGui extends Screen {
         sideW = (int)(panW * 0.185f);
         int mainW = panW - sideW;
         cardW = (mainW - PAD * (COLS + 1)) / COLS;
-        // Slightly more portrait ratio to match original
         cardH = (int)(cardW * 1.05f);
         scrollY = 0;
     }
@@ -151,14 +147,12 @@ public class AzeluxClickGui extends Screen {
         int sideRight = panX + sideW - 8;
         int sideContentW = sideRight - sx;
 
-        // Config name row
         int nameRowY = panY + navH + 12;
         ctx.fill(sx, nameRowY, sideRight, nameRowY + 22, 0x33FFFFFF);
         ctx.fill(sx, nameRowY, sideRight, nameRowY + 1, 0x55FFFFFF);
         ctx.drawText(textRenderer, "Default", sx + 8, nameRowY + 7, C_WHITE, false);
         ctx.drawText(textRenderer, "\u270E", sideRight - 12, nameRowY + 7, C_GRAY, false);
 
-        // Config description hint (matches original Bedrock sidebar style)
         int descY = nameRowY + 30;
         String[] descLines = {
             "Mods that are marked",
@@ -167,7 +161,6 @@ public class AzeluxClickGui extends Screen {
             "make them work."
         };
         for (String line : descLines) {
-            // Wrap center-aligned in sidebar
             int lineX = sx + (sideContentW - textRenderer.getWidth(line)) / 2;
             ctx.drawText(textRenderer, line, lineX, descY, C_GRAY, false);
             descY += 10;
@@ -201,14 +194,11 @@ public class AzeluxClickGui extends Screen {
         texScaled(ctx, T_CARD, cx, cy, cardW, cardH, 235, 229);
         if (hov) ctx.fill(cx, cy, cx + cardW, cy + cardH, C_CARD_TINT);
 
-        // Icon background area (darker tint in the upper portion of the card)
-        int iconAreaH = (int)(cardH * 0.55f);
-        ctx.fill(cx + 1, cy + 1, cx + cardW - 1, cy + iconAreaH, C_ICON_BG);
-
+        // Icon — no separate dark background, sits directly on card texture
         Identifier icon = resolveIcon(mod.getName());
-        int iconSz = (int)(cardW * 0.30f);
+        int iconSz = (int)(cardW * 0.40f);
         int iconX  = cx + (cardW - iconSz) / 2;
-        int iconY  = cy + (int)(cardH * 0.10f);
+        int iconY  = cy + (int)(cardH * 0.09f);
         if (icon != null) texScaled(ctx, icon, iconX, iconY, iconSz, iconSz, 52, 52);
 
         String name = mod.getName();
@@ -228,7 +218,6 @@ public class AzeluxClickGui extends Screen {
         boolean en = mod.isEnabled();
 
         texScaled(ctx, optHov ? T_OPT_HOV : T_OPT, optX, optY, btnW, optH, 230, 39);
-        // OPTIONS label with gear icon
         int optLabelX = optX + (btnW - textRenderer.getWidth("OPTIONS") - 14) / 2;
         ctx.drawText(textRenderer, "OPTIONS", optLabelX, optY + (optH - 7) / 2, C_WHITE, false);
         ctx.drawText(textRenderer, "\u2699", optX + btnW - 14, optY + (optH - 7) / 2, C_GRAY, false);
