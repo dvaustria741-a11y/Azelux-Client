@@ -5,7 +5,8 @@
   "client": [
     "GameRendererMixin",
     "LivingEntityMixin",
-    "MinecraftClientAccessor"
+    "MinecraftClientAccessor",
+    "TitleScreenMixin"
   ],
   "injectors": {
     "defaultRequire": 1
