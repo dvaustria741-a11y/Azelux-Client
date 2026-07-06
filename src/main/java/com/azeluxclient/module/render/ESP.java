@@ -6,7 +6,6 @@ import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.minecraft.client.render.RenderLayers;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.client.render.entity.state.EntityRenderState;
 import net.minecraft.client.render.entity.state.LivingEntityRenderState;
 import net.minecraft.client.render.state.CameraRenderState;
@@ -15,6 +14,8 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.EntityType;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
+import org.joml.Matrix3f;
+import org.joml.Matrix4f;
 
 public class ESP extends Module {
     public ESP() {
@@ -36,9 +37,6 @@ public class ESP extends Module {
         if (cameraState == null || cameraState.pos == null) return;
         Vec3d cam = cameraState.pos;
 
-        // WorldRenderer.drawBox handles the full VertexFormats.LINES vertex format
-        // (including the LineWidth element required in 1.21.11 / Sodium 0.8.12)
-        // so we no longer need to build vertices manually.
         VertexConsumer lines = vcp.getBuffer(RenderLayers.LINES);
 
         for (EntityRenderState state : worldState.entityRenderStates) {
@@ -56,9 +54,48 @@ public class ESP extends Module {
 
             float hw = state.width / 2f;
             Box box = new Box(-hw, 0, -hw, hw, state.height, hw);
-            WorldRenderer.drawBox(matrices, lines, box, r, g, b, 1.0f);
+            drawBox(matrices, lines, box, r, g, b, 1.0f);
 
             matrices.pop();
         }
+    }
+
+    // WorldRenderer.drawBox was removed in 1.21.2+; draw the 12 box edges manually.
+    private static void drawBox(MatrixStack matrices, VertexConsumer lines, Box box,
+                                 float r, float g, float b, float a) {
+        Matrix4f mat = matrices.peek().getPositionMatrix();
+        Matrix3f nrm = matrices.peek().getNormalMatrix();
+
+        float x1 = (float) box.minX, y1 = (float) box.minY, z1 = (float) box.minZ;
+        float x2 = (float) box.maxX, y2 = (float) box.maxY, z2 = (float) box.maxZ;
+
+        // Bottom face
+        drawLine(lines, mat, nrm, x1, y1, z1, x2, y1, z1, r, g, b, a);
+        drawLine(lines, mat, nrm, x2, y1, z1, x2, y1, z2, r, g, b, a);
+        drawLine(lines, mat, nrm, x2, y1, z2, x1, y1, z2, r, g, b, a);
+        drawLine(lines, mat, nrm, x1, y1, z2, x1, y1, z1, r, g, b, a);
+        // Top face
+        drawLine(lines, mat, nrm, x1, y2, z1, x2, y2, z1, r, g, b, a);
+        drawLine(lines, mat, nrm, x2, y2, z1, x2, y2, z2, r, g, b, a);
+        drawLine(lines, mat, nrm, x2, y2, z2, x1, y2, z2, r, g, b, a);
+        drawLine(lines, mat, nrm, x1, y2, z2, x1, y2, z1, r, g, b, a);
+        // Vertical edges
+        drawLine(lines, mat, nrm, x1, y1, z1, x1, y2, z1, r, g, b, a);
+        drawLine(lines, mat, nrm, x2, y1, z1, x2, y2, z1, r, g, b, a);
+        drawLine(lines, mat, nrm, x2, y1, z2, x2, y2, z2, r, g, b, a);
+        drawLine(lines, mat, nrm, x1, y1, z2, x1, y2, z2, r, g, b, a);
+    }
+
+    private static void drawLine(VertexConsumer lines, Matrix4f mat, Matrix3f nrm,
+                                  float x1, float y1, float z1,
+                                  float x2, float y2, float z2,
+                                  float r, float g, float b, float a) {
+        float dx = x2 - x1, dy = y2 - y1, dz = z2 - z1;
+        float len = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+        if (len == 0) return;
+        float nx = dx / len, ny = dy / len, nz = dz / len;
+
+        lines.vertex(mat, x1, y1, z1).color(r, g, b, a).normal(nrm, nx, ny, nz);
+        lines.vertex(mat, x2, y2, z2).color(r, g, b, a).normal(nrm, nx, ny, nz);
     }
 }
