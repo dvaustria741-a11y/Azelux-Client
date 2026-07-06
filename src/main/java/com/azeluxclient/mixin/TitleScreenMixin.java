@@ -19,7 +19,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(TitleScreen.class)
 public abstract class TitleScreenMixin extends Screen {
 
-    private static final Identifier AZ_LOGO = Identifier.of("azeluxclient", "textures/gui/logo.png");
+    private static final Identifier AZ_LOGO   = Identifier.of("azeluxclient", "textures/gui/logo.png");
+    private static final Identifier AZ_BG     = Identifier.of("azeluxclient", "textures/gui/loading_screen.png");
 
     protected TitleScreenMixin() {
         super(Text.empty());
@@ -55,11 +56,11 @@ public abstract class TitleScreenMixin extends Screen {
         ci.cancel();
         int w = width, h = height;
 
-        // Deep blue-black gradient background
-        ctx.fillGradient(0, 0, w, h, 0xFF0D0D22, 0xFF060612);
-
-        // Subtle centre glow
-        ctx.fillGradient(w / 2 - 220, h / 5, w / 2 + 220, 4 * h / 5, 0x1A304090, 0x00000000);
+        // Loading screen background (blurred Minecraft build)
+        ctx.drawTexture(RenderPipelines.GUI_TEXTURED,
+                AZ_BG, 0, 0, 0f, 0f, w, h, w, h, w, h);
+        // Subtle dark vignette overlay so text stays readable
+        ctx.fillGradient(0, 0, w, h, 0x55000000, 0x33000000);
 
         // Logo
         int logoSz = Math.min(90, h / 5);
