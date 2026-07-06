@@ -13,8 +13,12 @@ public class Fullbright extends Module {
     @Override
     public void onEnable() {
         MinecraftClient client = mc();
-        if (client != null && client.options != null)
+        if (client != null && client.options != null) {
             prevGamma = client.options.getGamma().getValue();
+            // Set once on enable — calling setValue() every tick caused Sodium 0.8.x
+            // to spam "Illegal option value 16.0 for Brightness" every frame.
+            client.options.getGamma().setValue(16.0);
+        }
     }
 
     @Override
@@ -24,8 +28,5 @@ public class Fullbright extends Module {
             client.options.getGamma().setValue(prevGamma);
     }
 
-    @Override
-    public void onTick(MinecraftClient client) {
-        if (client.options != null) client.options.getGamma().setValue(16.0);
-    }
+    // onTick intentionally removed — gamma only needs to be applied once.
 }
