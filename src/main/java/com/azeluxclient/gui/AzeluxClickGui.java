@@ -135,8 +135,8 @@ public class AzeluxClickGui extends Screen {
             totalW += tabWidths[i] + 4;
         }
         int tabX = panX + (panW - totalW) / 2;
-        int tabH  = navH - 8;
-        int tabY  = panY + 4;
+        int tabH  = 18;
+        int tabY  = panY + (navH - tabH) / 2;
         for (int i = 0; i < TABS.length; i++) {
             int tw = tabWidths[i];
             boolean sel = (activeTab == i);
@@ -318,7 +318,7 @@ public class AzeluxClickGui extends Screen {
             totalW += tabWidths[i] + 4;
         }
         int tabX = panX + (panW - totalW) / 2;
-        int tabH = navH - 8, tabY = panY + 4;
+        int tabH = 18, tabY = panY + (navH - 18) / 2;
         for (int i = 0; i < TABS.length; i++) {
             if (mx >= tabX && mx < tabX + tabWidths[i] && my >= tabY && my < tabY + tabH) {
                 activeTab = i; optModule = null; return true;
