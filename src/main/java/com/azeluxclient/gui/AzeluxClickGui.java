@@ -58,7 +58,7 @@ public class AzeluxClickGui extends Screen {
     private int sideW, navH;
     private int cardW, cardH;
     private static final int COLS = 3;
-    private static final int PAD  = 8;
+    private static final int PAD  = 6;
     private static final int R    = 6;
 
     // ── State ─────────────────────────────────────────────────────────────────
@@ -78,15 +78,18 @@ public class AzeluxClickGui extends Screen {
 
     @Override
     protected void init() {
-        panW  = (int)(width  * 0.93f);
-        panH  = (int)(height * 0.89f);
+        panW  = (int)(width  * 0.87f);
+        panH  = (int)(height * 0.91f);
         panX  = (width  - panW) / 2;
         panY  = (height - panH) / 2;
-        navH  = 32;
-        sideW = (int)(panW * 0.185f);
+        navH  = 26;
+        sideW = (int)(panW * 0.165f);
         int mainW = panW - sideW;
         cardW = (mainW - PAD * (COLS + 1)) / COLS;
-        cardH = (int)(cardW * 1.05f);
+        // Compute cardH so exactly 2 rows always fit in the visible grid area
+        int gridH  = panH - navH - 2;
+        int maxCardH = (gridH - PAD * 3) / 2;
+        cardH = Math.min((int)(cardW * 0.88f), maxCardH);
         scrollY = 0;
     }
 
@@ -115,19 +118,19 @@ public class AzeluxClickGui extends Screen {
     // ── Nav ───────────────────────────────────────────────────────────────────
     private void renderNav(DrawContext ctx, int mx, int my) {
         int logoSz = navH - 6;
-        int lx = panX + 10, ly = panY + (navH - logoSz) / 2;
+        int lx = panX + 8, ly = panY + (navH - logoSz) / 2;
         texScaled(ctx, T_LOGO, lx, ly, logoSz, logoSz, 281, 282);
         ctx.drawText(textRenderer, "AZELUX CLIENT",
-                lx + logoSz + 6, panY + navH / 2 - 4, C_WHITE, false);
+                lx + logoSz + 5, panY + navH / 2 - 4, C_WHITE, false);
 
         int[] tabWidths = new int[TABS.length];
         int totalW = 0;
         for (int i = 0; i < TABS.length; i++) {
-            tabWidths[i] = textRenderer.getWidth(TABS[i]) + 28;
+            tabWidths[i] = textRenderer.getWidth(TABS[i]) + 22;
             totalW += tabWidths[i] + 4;
         }
         int tabX = panX + (panW - totalW) / 2;
-        int tabH  = 18;
+        int tabH  = 16;
         int tabY  = panY + (navH - tabH) / 2;
         for (int i = 0; i < TABS.length; i++) {
             int tw = tabWidths[i];
@@ -143,17 +146,17 @@ public class AzeluxClickGui extends Screen {
 
     // ── Sidebar ───────────────────────────────────────────────────────────────
     private void renderSidebar(DrawContext ctx) {
-        int sx = panX + 8;
-        int sideRight = panX + sideW - 8;
+        int sx = panX + 6;
+        int sideRight = panX + sideW - 6;
         int sideContentW = sideRight - sx;
 
-        int nameRowY = panY + navH + 12;
-        ctx.fill(sx, nameRowY, sideRight, nameRowY + 22, 0x33FFFFFF);
+        int nameRowY = panY + navH + 10;
+        ctx.fill(sx, nameRowY, sideRight, nameRowY + 20, 0x33FFFFFF);
         ctx.fill(sx, nameRowY, sideRight, nameRowY + 1, 0x55FFFFFF);
-        ctx.drawText(textRenderer, "Default", sx + 8, nameRowY + 7, C_WHITE, false);
-        ctx.drawText(textRenderer, "\u270E", sideRight - 12, nameRowY + 7, C_GRAY, false);
+        ctx.drawText(textRenderer, "Default", sx + 6, nameRowY + 6, C_WHITE, false);
+        ctx.drawText(textRenderer, "\u270E", sideRight - 10, nameRowY + 6, C_GRAY, false);
 
-        int descY = nameRowY + 30;
+        int descY = nameRowY + 26;
         String[] descLines = {
             "Mods that are marked",
             "with \u25CF require you to",
@@ -163,7 +166,7 @@ public class AzeluxClickGui extends Screen {
         for (String line : descLines) {
             int lineX = sx + (sideContentW - textRenderer.getWidth(line)) / 2;
             ctx.drawText(textRenderer, line, lineX, descY, C_GRAY, false);
-            descY += 10;
+            descY += 9;
         }
     }
 
@@ -194,23 +197,23 @@ public class AzeluxClickGui extends Screen {
         texScaled(ctx, T_CARD, cx, cy, cardW, cardH, 235, 229);
         if (hov) ctx.fill(cx, cy, cx + cardW, cy + cardH, C_CARD_TINT);
 
-        // Icon — no separate dark background, sits directly on card texture
+        // Icon — scaled down to fit compact card
         Identifier icon = resolveIcon(mod.getName());
-        int iconSz = (int)(cardW * 0.40f);
+        int iconSz = (int)(cardW * 0.30f);
         int iconX  = cx + (cardW - iconSz) / 2;
-        int iconY  = cy + (int)(cardH * 0.09f);
+        int iconY  = cy + (int)(cardH * 0.08f);
         if (icon != null) texScaled(ctx, icon, iconX, iconY, iconSz, iconSz, 52, 52);
 
         String name = mod.getName();
         ctx.drawText(textRenderer, name,
                 cx + (cardW - textRenderer.getWidth(name)) / 2,
-                cy + (int)(cardH * 0.56f), C_WHITE, false);
+                cy + (int)(cardH * 0.54f), C_WHITE, false);
 
-        int optH = Math.max(13, (int)(cardH * 0.165f));
-        int togH = Math.max(13, (int)(cardH * 0.175f));
-        int btnW = cardW - 10;
-        int optX = cx + 5;
-        int optY = cy + cardH - togH - optH - 6;
+        int optH = Math.max(10, (int)(cardH * 0.145f));
+        int togH = Math.max(10, (int)(cardH * 0.155f));
+        int btnW = cardW - 8;
+        int optX = cx + 4;
+        int optY = cy + cardH - togH - optH - 5;
         int togY = optY + optH + 2;
 
         boolean optHov = mx >= optX && mx < optX + btnW && my >= optY && my < optY + optH;
@@ -218,9 +221,9 @@ public class AzeluxClickGui extends Screen {
         boolean en = mod.isEnabled();
 
         texScaled(ctx, optHov ? T_OPT_HOV : T_OPT, optX, optY, btnW, optH, 230, 39);
-        int optLabelX = optX + (btnW - textRenderer.getWidth("OPTIONS") - 14) / 2;
+        int optLabelX = optX + (btnW - textRenderer.getWidth("OPTIONS") - 12) / 2;
         ctx.drawText(textRenderer, "OPTIONS", optLabelX, optY + (optH - 7) / 2, C_WHITE, false);
-        ctx.drawText(textRenderer, "\u2699", optX + btnW - 14, optY + (optH - 7) / 2, C_GRAY, false);
+        ctx.drawText(textRenderer, "\u2699", optX + btnW - 12, optY + (optH - 7) / 2, C_GRAY, false);
 
         texScaled(ctx,
                 en ? (togHov ? T_ENABLED_HOV : T_ENABLED)
@@ -313,11 +316,11 @@ public class AzeluxClickGui extends Screen {
         int[] tabWidths = new int[TABS.length];
         int totalW = 0;
         for (int i = 0; i < TABS.length; i++) {
-            tabWidths[i] = textRenderer.getWidth(TABS[i]) + 28;
+            tabWidths[i] = textRenderer.getWidth(TABS[i]) + 22;
             totalW += tabWidths[i] + 4;
         }
         int tabX = panX + (panW - totalW) / 2;
-        int tabH = 18, tabY = panY + (navH - 18) / 2;
+        int tabH = 16, tabY = panY + (navH - 16) / 2;
         for (int i = 0; i < TABS.length; i++) {
             if (mx >= tabX && mx < tabX + tabWidths[i] && my >= tabY && my < tabY + tabH) {
                 activeTab = i; optModule = null; return true;
@@ -377,11 +380,11 @@ public class AzeluxClickGui extends Screen {
                 int col = i % COLS, row = i / COLS;
                 int cx  = gx + PAD + col * (cardW + PAD);
                 int cy  = gy + PAD + row * (cardH + PAD) - scrollY;
-                int optH = Math.max(13, (int)(cardH * 0.165f));
-                int togH = Math.max(13, (int)(cardH * 0.175f));
-                int btnW = cardW - 10;
-                int optX = cx + 5;
-                int optY = cy + cardH - togH - optH - 6;
+                int optH = Math.max(10, (int)(cardH * 0.145f));
+                int togH = Math.max(10, (int)(cardH * 0.155f));
+                int btnW = cardW - 8;
+                int optX = cx + 4;
+                int optY = cy + cardH - togH - optH - 5;
                 int togY = optY + optH + 2;
                 if (mx >= optX && mx < optX + btnW && my >= optY && my < optY + optH) {
                     optModule = mod; return true;
