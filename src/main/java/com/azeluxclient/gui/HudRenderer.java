@@ -141,8 +141,8 @@ public class HudRenderer {
 
     private static int renderArmorHUD(DrawContext ctx, MinecraftClient mc, ArmorHUD mod, int defaultY) {
         // Use slider positions; fall back to stacked position for Y if at default
-        int x = (int) mod.xPos.getValue();
-        int y = (mod.yPos.getValue() == 28.0) ? defaultY : (int) mod.yPos.getValue();
+        int x = (int)(double) mod.xPos.getValue();
+        int y = (mod.yPos.getValue() == 28.0) ? defaultY : (int)(double) mod.yPos.getValue();
         ItemStack[] armor = mod.getArmorStacks(mc);
         ctx.fill(x - 2, y - 2, x + 76, y + 22, COL_SHADOW);
         for (int i = 0; i < armor.length && i < 4; i++) {
