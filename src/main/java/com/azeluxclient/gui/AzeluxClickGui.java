@@ -78,18 +78,18 @@ public class AzeluxClickGui extends Screen {
 
     @Override
     protected void init() {
-        panW  = (int)(width  * 0.87f);
+        panW  = (int)(width  * 0.70f);
         panH  = (int)(height * 0.91f);
         panX  = (width  - panW) / 2;
         panY  = (height - panH) / 2;
         navH  = 26;
-        sideW = (int)(panW * 0.165f);
+        sideW = (int)(panW * 0.20f);
         int mainW = panW - sideW;
         cardW = (mainW - PAD * (COLS + 1)) / COLS;
         // Compute cardH so exactly 2 rows always fit in the visible grid area
-        int gridH  = panH - navH - 2;
+        int gridH    = panH - navH - 2;
         int maxCardH = (gridH - PAD * 3) / 2;
-        cardH = Math.min((int)(cardW * 0.88f), maxCardH);
+        cardH = Math.min((int)(cardW * 1.05f), maxCardH);
         scrollY = 0;
     }
 
