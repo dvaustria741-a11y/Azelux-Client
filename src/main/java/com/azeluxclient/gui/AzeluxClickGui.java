@@ -28,6 +28,8 @@ public class AzeluxClickGui extends Screen {
     private static final Identifier T_SWITCH_ON    = tex("switch_on");
     private static final Identifier T_SWITCH_OFF   = tex("switch_off");
     private static final Identifier T_SWITCH_BG    = tex("switch_background");
+    private static final Identifier T_BTN_DEFAULT  = tex("button_default");
+    private static final Identifier T_BTN_LESS     = tex("button_less");
 
     private static Identifier tex(String name) {
         return Identifier.of("azeluxclient", "textures/gui/" + name + ".png");
@@ -129,22 +131,23 @@ public class AzeluxClickGui extends Screen {
         int[] tabWidths = new int[TABS.length];
         int totalW = 0;
         for (int i = 0; i < TABS.length; i++) {
-            tabWidths[i] = textRenderer.getWidth(TABS[i]) + 24;
-            totalW += tabWidths[i];
+            tabWidths[i] = textRenderer.getWidth(TABS[i]) + 28;
+            totalW += tabWidths[i] + 4;
         }
         int tabX = panX + (panW - totalW) / 2;
+        int tabH  = navH - 8;
+        int tabY  = panY + 4;
         for (int i = 0; i < TABS.length; i++) {
             int tw = tabWidths[i];
             boolean sel = (activeTab == i);
-            boolean hov = mx >= tabX && mx < tabX + tw && my >= panY && my < panY + navH;
+            // Background: button_default when selected, button_less when not
+            texScaled(ctx, sel ? T_BTN_DEFAULT : T_BTN_LESS, tabX, tabY, tw, tabH, 249, 249);
+            // Label text — white when selected, dimmer when not
             ctx.drawText(textRenderer, TABS[i],
                     tabX + (tw - textRenderer.getWidth(TABS[i])) / 2,
-                    panY + navH / 2 - 4,
-                    sel ? C_WHITE : (hov ? 0xFFCCCCCC : C_DIM), false);
-            if (sel) {
-                ctx.fill(tabX + 4, panY + navH - 2, tabX + tw - 4, panY + navH, C_RED);
-            }
-            tabX += tw;
+                    tabY + tabH / 2 - 4,
+                    sel ? C_WHITE : C_DIM, false);
+            tabX += tw + 4;
         }
     }
 
@@ -311,15 +314,16 @@ public class AzeluxClickGui extends Screen {
         int[] tabWidths = new int[TABS.length];
         int totalW = 0;
         for (int i = 0; i < TABS.length; i++) {
-            tabWidths[i] = textRenderer.getWidth(TABS[i]) + 24;
-            totalW += tabWidths[i];
+            tabWidths[i] = textRenderer.getWidth(TABS[i]) + 28;
+            totalW += tabWidths[i] + 4;
         }
         int tabX = panX + (panW - totalW) / 2;
+        int tabH = navH - 8, tabY = panY + 4;
         for (int i = 0; i < TABS.length; i++) {
-            if (mx >= tabX && mx < tabX + tabWidths[i] && my >= panY && my < panY + navH) {
+            if (mx >= tabX && mx < tabX + tabWidths[i] && my >= tabY && my < tabY + tabH) {
                 activeTab = i; optModule = null; return true;
             }
-            tabX += tabWidths[i];
+            tabX += tabWidths[i] + 4;
         }
 
         // Settings view
