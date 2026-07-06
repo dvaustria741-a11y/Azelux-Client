@@ -38,16 +38,18 @@ public class AzeluxClickGui extends Screen {
         return Identifier.of("azeluxclient", "textures/gui/icons/" + key + ".png");
     }
 
-    // ── Colors (more transparent than before) ─────────────────────────────────
+    // ── Colors ────────────────────────────────────────────────────────────────
     private static final int C_WHITE     = 0xFFFFFFFF;
     private static final int C_GRAY      = 0xFFAAAAAA;
     private static final int C_DIM       = 0xFF777777;
     private static final int C_RED       = 0xFFCC1A3F;
-    private static final int C_PANEL     = 0x880A0A18; // 53% opaque — was 0xCC
+    private static final int C_PANEL     = 0x880A0A18;
     private static final int C_SIDEBAR   = 0x33000000;
-    private static final int C_NAV       = 0x660D0D1E; // 40% opaque — was 0xBB
+    private static final int C_NAV       = 0x660D0D1E;
     private static final int C_CARD_TINT = 0x22FFFFFF;
-    private static final int C_ACCENT    = 0xFFC084FC; // lavender accent
+    private static final int C_ACCENT    = 0xFFC084FC;
+    // Darker tint used behind the icon area in each card
+    private static final int C_ICON_BG   = 0x33000000;
 
     // ── Tabs ──────────────────────────────────────────────────────────────────
     private static final String[] TABS = { "MODS", "SETTINGS", "EMOTES" };
@@ -59,10 +61,9 @@ public class AzeluxClickGui extends Screen {
     private int cardW, cardH;
     private static final int COLS = 3;
     private static final int PAD  = 8;
-    private static final int R    = 6; // corner radius
+    private static final int R    = 6;
 
     // ── State ─────────────────────────────────────────────────────────────────
-    // ── General settings state ────────────────────────────────────────────────
     private static boolean hideLoadingScreen  = false;
     private static boolean showNametagPerson  = false;
 
@@ -79,15 +80,17 @@ public class AzeluxClickGui extends Screen {
 
     @Override
     protected void init() {
-        panW  = (int)(width  * 0.86f);
-        panH  = (int)(height * 0.83f);
+        // Match original Bedrock panel size: ~93% wide, ~89% tall
+        panW  = (int)(width  * 0.93f);
+        panH  = (int)(height * 0.89f);
         panX  = (width  - panW) / 2;
         panY  = (height - panH) / 2;
         navH  = 32;
-        sideW = (int)(panW * 0.195f);
+        sideW = (int)(panW * 0.185f);
         int mainW = panW - sideW;
         cardW = (mainW - PAD * (COLS + 1)) / COLS;
-        cardH = (int)(cardW * (229.0 / 235.0));
+        // Slightly more portrait ratio to match original
+        cardH = (int)(cardW * 1.05f);
         scrollY = 0;
     }
 
@@ -96,19 +99,12 @@ public class AzeluxClickGui extends Screen {
     // ══════════════════════════════════════════════════════════════════════════
     @Override
     public void render(DrawContext ctx, int mx, int my, float delta) {
-        // Dim the game world behind the panel (lighter than before)
         ctx.fill(0, 0, width, height, 0x55000000);
 
-        // Panel background — rounded corners
         fillRounded(ctx, panX, panY, panX + panW, panY + panH, C_PANEL, R);
-
-        // Nav bar — round only top corners
         fillRoundedTop(ctx, panX, panY, panX + panW, panY + navH, C_NAV, R);
-
-        // Sidebar tint (rectangular, safely inside panel)
         ctx.fill(panX + 1, panY + navH, panX + sideW, panY + panH - 1, C_SIDEBAR);
 
-        // Separator lines (inset so they don't overdraw the rounded corners)
         ctx.fill(panX + R, panY + navH, panX + panW - R, panY + navH + 1, 0x44FFFFFF);
         ctx.fill(panX + sideW, panY + navH + 4, panX + sideW + 1, panY + panH - 4, 0x33FFFFFF);
 
@@ -140,9 +136,7 @@ public class AzeluxClickGui extends Screen {
         for (int i = 0; i < TABS.length; i++) {
             int tw = tabWidths[i];
             boolean sel = (activeTab == i);
-            // Background: button_default when selected, button_less when not
             texScaled(ctx, sel ? T_BTN_DEFAULT : T_BTN_LESS, tabX, tabY, tw, tabH, 249, 249);
-            // Label text — white when selected, dimmer when not
             ctx.drawText(textRenderer, TABS[i],
                     tabX + (tw - textRenderer.getWidth(TABS[i])) / 2,
                     tabY + tabH / 2 - 4,
@@ -153,11 +147,31 @@ public class AzeluxClickGui extends Screen {
 
     // ── Sidebar ───────────────────────────────────────────────────────────────
     private void renderSidebar(DrawContext ctx) {
-        int sx = panX + 8, sy = panY + navH + 12;
-        ctx.fill(sx, sy, panX + sideW - 8, sy + 22, 0x33FFFFFF);
-        ctx.fill(sx, sy, panX + sideW - 8, sy + 1, 0x55FFFFFF);
-        ctx.drawText(textRenderer, "Default", sx + 8, sy + 7, C_WHITE, false);
-        ctx.drawText(textRenderer, "✎", panX + sideW - 20, sy + 7, C_GRAY, false);
+        int sx = panX + 8;
+        int sideRight = panX + sideW - 8;
+        int sideContentW = sideRight - sx;
+
+        // Config name row
+        int nameRowY = panY + navH + 12;
+        ctx.fill(sx, nameRowY, sideRight, nameRowY + 22, 0x33FFFFFF);
+        ctx.fill(sx, nameRowY, sideRight, nameRowY + 1, 0x55FFFFFF);
+        ctx.drawText(textRenderer, "Default", sx + 8, nameRowY + 7, C_WHITE, false);
+        ctx.drawText(textRenderer, "\u270E", sideRight - 12, nameRowY + 7, C_GRAY, false);
+
+        // Config description hint (matches original Bedrock sidebar style)
+        int descY = nameRowY + 30;
+        String[] descLines = {
+            "Mods that are marked",
+            "with \u25CF require you to",
+            "save your config, to",
+            "make them work."
+        };
+        for (String line : descLines) {
+            // Wrap center-aligned in sidebar
+            int lineX = sx + (sideContentW - textRenderer.getWidth(line)) / 2;
+            ctx.drawText(textRenderer, line, lineX, descY, C_GRAY, false);
+            descY += 10;
+        }
     }
 
     // ── Module grid ───────────────────────────────────────────────────────────
@@ -187,16 +201,20 @@ public class AzeluxClickGui extends Screen {
         texScaled(ctx, T_CARD, cx, cy, cardW, cardH, 235, 229);
         if (hov) ctx.fill(cx, cy, cx + cardW, cy + cardH, C_CARD_TINT);
 
+        // Icon background area (darker tint in the upper portion of the card)
+        int iconAreaH = (int)(cardH * 0.55f);
+        ctx.fill(cx + 1, cy + 1, cx + cardW - 1, cy + iconAreaH, C_ICON_BG);
+
         Identifier icon = resolveIcon(mod.getName());
-        int iconSz = (int)(cardW * 0.28f);
+        int iconSz = (int)(cardW * 0.30f);
         int iconX  = cx + (cardW - iconSz) / 2;
-        int iconY  = cy + (int)(cardH * 0.12f);
+        int iconY  = cy + (int)(cardH * 0.10f);
         if (icon != null) texScaled(ctx, icon, iconX, iconY, iconSz, iconSz, 52, 52);
 
         String name = mod.getName();
         ctx.drawText(textRenderer, name,
                 cx + (cardW - textRenderer.getWidth(name)) / 2,
-                cy + (int)(cardH * 0.52f) - 4, C_WHITE, false);
+                cy + (int)(cardH * 0.56f), C_WHITE, false);
 
         int optH = Math.max(13, (int)(cardH * 0.165f));
         int togH = Math.max(13, (int)(cardH * 0.175f));
@@ -210,7 +228,10 @@ public class AzeluxClickGui extends Screen {
         boolean en = mod.isEnabled();
 
         texScaled(ctx, optHov ? T_OPT_HOV : T_OPT, optX, optY, btnW, optH, 230, 39);
-        drawCentered(ctx, "OPTIONS", optX, optY, btnW, optH, C_WHITE);
+        // OPTIONS label with gear icon
+        int optLabelX = optX + (btnW - textRenderer.getWidth("OPTIONS") - 14) / 2;
+        ctx.drawText(textRenderer, "OPTIONS", optLabelX, optY + (optH - 7) / 2, C_WHITE, false);
+        ctx.drawText(textRenderer, "\u2699", optX + btnW - 14, optY + (optH - 7) / 2, C_GRAY, false);
 
         texScaled(ctx,
                 en ? (togHov ? T_ENABLED_HOV : T_ENABLED)
@@ -230,14 +251,12 @@ public class AzeluxClickGui extends Screen {
         int swX = gx + settW - bgW - 4;
         int sy = gy + 20;
 
-        // Hide Azelux Loading Screen
         ctx.drawText(textRenderer, "Hide Azelux Loading Screen", gx + 4, sy + 2, C_WHITE, false);
         texScaled(ctx, T_SWITCH_BG, swX, sy, bgW, bgH, 60, 20);
         texScaled(ctx, hideLoadingScreen ? T_SWITCH_ON : T_SWITCH_OFF,
                   hideLoadingScreen ? swX + (bgW - togW) : swX, sy, togW, bgH, 40, 20);
         sy += 20;
 
-        // Show Nametag in Third Person
         ctx.drawText(textRenderer, "Show Nametag in Third Person", gx + 4, sy + 2, C_WHITE, false);
         texScaled(ctx, T_SWITCH_BG, swX, sy, bgW, bgH, 60, 20);
         texScaled(ctx, showNametagPerson ? T_SWITCH_ON : T_SWITCH_OFF,
@@ -252,19 +271,16 @@ public class AzeluxClickGui extends Screen {
         int gx    = panX + sideW + PAD + 1, gy = panY + navH + PAD;
         int settW = panW - sideW - PAD * 2 - 1;
 
-        // Header
         boolean bHov = mx >= gx && mx < gx + 72 && my >= gy && my < gy + 18;
         ctx.fill(gx, gy, gx + 72, gy + 18, bHov ? 0xFF2A2A4A : 0xFF1A1A32);
         ctx.fill(gx, gy, gx + 72, gy + 1, 0x44FFFFFF);
-        ctx.drawText(textRenderer, "←  Back", gx + 8, gy + 5, C_WHITE, false);
+        ctx.drawText(textRenderer, "\u2190  Back", gx + 8, gy + 5, C_WHITE, false);
 
-        // Module name + accent bar
         String title = optModule.getName().toUpperCase();
         ctx.drawText(textRenderer, title, gx + 82, gy + 5, C_WHITE, false);
         int tw = textRenderer.getWidth(title);
         ctx.fill(gx + 82, gy + 16, gx + 82 + tw, gy + 17, C_RED);
 
-        // Description
         ctx.drawText(textRenderer, optModule.getDescription(), gx + 82, gy + 20, C_DIM, false);
         ctx.fill(gx, gy + 30, gx + settW, gy + 31, 0x33FFFFFF);
 
@@ -273,7 +289,6 @@ public class AzeluxClickGui extends Screen {
             if (sy > panY + panH - 20) break;
             if (s instanceof BooleanSetting bs) {
                 ctx.drawText(textRenderer, bs.getName(), gx + 4, sy + 2, C_WHITE, false);
-                // Switch: background pill (30×12) + sliding indicator (20×12)
                 int bgW = 30, bgH = 12, togW = 20;
                 int swX = gx + settW - bgW - 4;
                 int swY = sy - 2;
@@ -285,17 +300,13 @@ public class AzeluxClickGui extends Screen {
                 }
                 sy += 20;
             } else if (s instanceof SliderSetting ss) {
-                // Label + value
                 String label = ss.getName() + "  " + String.format("%.1f", ss.getValue());
                 ctx.drawText(textRenderer, label, gx + 4, sy + 3, C_WHITE, false);
                 sy += 18;
                 int slW = settW - 16;
                 float t = (float)((ss.getValue() - ss.getMin()) / (ss.getMax() - ss.getMin()));
-                // Track background
                 ctx.fill(gx + 4, sy + 1, gx + 4 + slW, sy + 5, 0x55FFFFFF);
-                // Fill
                 ctx.fill(gx + 4, sy + 1, gx + 4 + (int)(t * slW), sy + 5, C_RED);
-                // Knob
                 texScaled(ctx, T_SLIDER, gx + 4 + (int)(t * slW) - 5, sy - 3, 10, 12, 10, 12);
                 sy += 24;
             }
@@ -310,7 +321,6 @@ public class AzeluxClickGui extends Screen {
         if (click.button() != 0) return super.mouseClicked(click, doubled);
         int mx = (int)click.x(), my = (int)click.y();
 
-        // Tabs
         int[] tabWidths = new int[TABS.length];
         int totalW = 0;
         for (int i = 0; i < TABS.length; i++) {
@@ -326,7 +336,6 @@ public class AzeluxClickGui extends Screen {
             tabX += tabWidths[i] + 4;
         }
 
-        // Settings view
         if (optModule != null) {
             int gx = panX + sideW + PAD + 1, gy = panY + navH + PAD;
             int settW = panW - sideW - PAD * 2 - 1;
@@ -357,7 +366,6 @@ public class AzeluxClickGui extends Screen {
             return true;
         }
 
-        // General settings switches
         if (activeTab == 1 && optModule == null) {
             int gx = panX + sideW + PAD + 1, gy = panY + navH + PAD;
             int settW = panW - sideW - PAD * 2 - 1;
@@ -372,7 +380,6 @@ public class AzeluxClickGui extends Screen {
             }
         }
 
-        // Grid
         if (activeTab == 0) {
             List<Module> mods = ModuleManager.getModules();
             int gx = panX + sideW + 1, gy = panY + navH + 1;
@@ -436,34 +443,26 @@ public class AzeluxClickGui extends Screen {
     //  HELPERS
     // ══════════════════════════════════════════════════════════════════════════
 
-    /** Fills a rectangle with rounded corners (radius r). */
     private void fillRounded(DrawContext ctx, int x1, int y1, int x2, int y2, int color, int r) {
-        // Centre body
         ctx.fill(x1 + r, y1, x2 - r, y2, color);
-        // Left/right strips (excluding corner areas)
         ctx.fill(x1, y1 + r, x1 + r, y2 - r, color);
         ctx.fill(x2 - r, y1 + r, x2, y2 - r, color);
-        // Corner arcs (per-row)
         for (int i = 0; i < r; i++) {
             int arc = r - (int) Math.sqrt((double) r * r - (double)(r - i) * (r - i));
-            ctx.fill(x1 + arc, y1 + i, x1 + r, y1 + i + 1, color); // TL
-            ctx.fill(x2 - r, y1 + i, x2 - arc, y1 + i + 1, color); // TR
-            ctx.fill(x1 + arc, y2 - i - 1, x1 + r, y2 - i, color); // BL
-            ctx.fill(x2 - r, y2 - i - 1, x2 - arc, y2 - i, color); // BR
+            ctx.fill(x1 + arc, y1 + i, x1 + r, y1 + i + 1, color);
+            ctx.fill(x2 - r, y1 + i, x2 - arc, y1 + i + 1, color);
+            ctx.fill(x1 + arc, y2 - i - 1, x1 + r, y2 - i, color);
+            ctx.fill(x2 - r, y2 - i - 1, x2 - arc, y2 - i, color);
         }
     }
 
-    /** Fills a rectangle rounded only at the TOP two corners. */
     private void fillRoundedTop(DrawContext ctx, int x1, int y1, int x2, int y2, int color, int r) {
-        // Body below corners
         ctx.fill(x1, y1 + r, x2, y2, color);
-        // Top centre strip
         ctx.fill(x1 + r, y1, x2 - r, y1 + r, color);
-        // Top corner arcs
         for (int i = 0; i < r; i++) {
             int arc = r - (int) Math.sqrt((double) r * r - (double)(r - i) * (r - i));
-            ctx.fill(x1 + arc, y1 + i, x1 + r, y1 + i + 1, color); // TL
-            ctx.fill(x2 - r, y1 + i, x2 - arc, y1 + i + 1, color); // TR
+            ctx.fill(x1 + arc, y1 + i, x1 + r, y1 + i + 1, color);
+            ctx.fill(x2 - r, y1 + i, x2 - arc, y1 + i + 1, color);
         }
     }
 
@@ -513,11 +512,10 @@ public class AzeluxClickGui extends Screen {
             case "aimassist", "aim_assist"                               -> "aimassist";
             case "reach"                                                  -> "reach";
             case "speed", "sprint"                                       -> "moving_status";
-            case "velocity"                                                   -> "velocity";
-            case "nofall", "no_fall"                                          -> "nofall";
-            case "antiafk", "anti_afk"                                        -> "antiafk";
-            case "fastplace", "fast_place"                                    -> "fastplace";
-            
+            case "velocity"                                               -> "velocity";
+            case "nofall", "no_fall"                                     -> "nofall";
+            case "antiafk", "anti_afk"                                   -> "antiafk";
+            case "fastplace", "fast_place"                               -> "fastplace";
             case "esp"                                                    -> "block_outline";
             case "zoom"                                                   -> "custom_crosshair";
             default                                                       -> null;
