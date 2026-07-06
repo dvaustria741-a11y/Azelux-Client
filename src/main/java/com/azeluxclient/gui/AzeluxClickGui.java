@@ -135,10 +135,7 @@ public class AzeluxClickGui extends Screen {
                     panY + navH / 2 - 4,
                     sel ? C_WHITE : (hov ? 0xFFCCCCCC : C_DIM), false);
             if (sel) {
-                // accent underline
                 ctx.fill(tabX + 4, panY + navH - 2, tabX + tw - 4, panY + navH, C_RED);
-                // glow dot above underline
-                ctx.fill(tabX + tw/2 - 1, panY + navH - 4, tabX + tw/2 + 1, panY + navH - 2, C_ACCENT);
             }
             tabX += tw;
         }
@@ -215,7 +212,7 @@ public class AzeluxClickGui extends Screen {
     // ── Settings tab (General settings) ───────────────────────────────────────
     private void renderSettingsTab(DrawContext ctx) {
         int gx = panX + sideW + PAD + 1, gy = panY + navH + PAD;
-        ctx.drawText(textRenderer, "GENERAL", gx, gy, C_ACCENT, false);
+        ctx.drawText(textRenderer, "GENERAL", gx, gy, C_WHITE, false);
         ctx.fill(gx, gy + 12, gx + 200, gy + 13, 0x44FFFFFF);
         ctx.drawText(textRenderer, "Hide Azelux Loading Screen", gx, gy + 20, C_WHITE, false);
         ctx.drawText(textRenderer, "Show Nametag in Third Person", gx, gy + 36, C_WHITE, false);
@@ -235,7 +232,7 @@ public class AzeluxClickGui extends Screen {
 
         // Module name + accent bar
         String title = optModule.getName().toUpperCase();
-        ctx.drawText(textRenderer, title, gx + 82, gy + 5, C_ACCENT, false);
+        ctx.drawText(textRenderer, title, gx + 82, gy + 5, C_WHITE, false);
         int tw = textRenderer.getWidth(title);
         ctx.fill(gx + 82, gy + 16, gx + 82 + tw, gy + 17, C_RED);
 
