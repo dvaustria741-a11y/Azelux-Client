@@ -101,8 +101,10 @@ public class AzeluxClickGui extends Screen {
     public void render(DrawContext ctx, int mx, int my, float delta) {
         ctx.fill(0, 0, width, height, 0x55000000);
 
-        // Draw background.png as the entire panel (1072x658 source)
+        // Draw background.png semi-transparently for translucent dark-glass effect
+        net.minecraft.client.render.RenderSystem.setShaderColor(1f, 1f, 1f, 0.80f);
         texScaled(ctx, T_BG, panX, panY, panW, panH, 1072, 658);
+        net.minecraft.client.render.RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 
         ctx.fill(panX + sideW, panY + navH + 4, panX + sideW + 1, panY + panH - 4, 0x33FFFFFF);
 
@@ -116,21 +118,24 @@ public class AzeluxClickGui extends Screen {
 
     // ── Nav ───────────────────────────────────────────────────────────────────
     private void renderNav(DrawContext ctx, int mx, int my) {
-        // Logo + "AZELUX CLIENT" baked into background.png — nothing to render here for title.
-        // Right-align tabs so they always sit in the empty right half of the header bar.
+        // Logo + "AZELUX CLIENT" baked into background.png — nothing to render for title.
+        // Center tabs horizontally in the header bar.
         int[] tabWidths = new int[TABS.length];
         int totalW = 0;
         for (int i = 0; i < TABS.length; i++) {
             tabWidths[i] = textRenderer.getWidth(TABS[i]) + 22;
             totalW += tabWidths[i] + 4;
         }
-        int tabX = panX + panW - totalW - 10;  // right-aligned with 10px margin
+        int tabX = panX + (panW - totalW) / 2;
         int tabH  = 16;
         int tabY  = panY + (navH - tabH) / 2;
         for (int i = 0; i < TABS.length; i++) {
             int tw = tabWidths[i];
             boolean sel = (activeTab == i);
+            // Semi-transparent tab buttons: selected slightly more opaque
+            net.minecraft.client.render.RenderSystem.setShaderColor(1f, 1f, 1f, sel ? 0.85f : 0.50f);
             texScaled(ctx, sel ? T_BTN_DEFAULT : T_BTN_LESS, tabX, tabY, tw, tabH, 249, 249);
+            net.minecraft.client.render.RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
             ctx.drawText(textRenderer, TABS[i],
                     tabX + (tw - textRenderer.getWidth(TABS[i])) / 2,
                     tabY + tabH / 2 - 4,
@@ -303,7 +308,7 @@ public class AzeluxClickGui extends Screen {
             tabWidths[i] = textRenderer.getWidth(TABS[i]) + 22;
             totalW += tabWidths[i] + 4;
         }
-        int tabX = panX + panW - totalW - 10;
+        int tabX = panX + (panW - totalW) / 2;
         int tabH = 16, tabY = panY + (navH - 16) / 2;
         for (int i = 0; i < TABS.length; i++) {
             if (mx >= tabX && mx < tabX + tabWidths[i] && my >= tabY && my < tabY + tabH) {
