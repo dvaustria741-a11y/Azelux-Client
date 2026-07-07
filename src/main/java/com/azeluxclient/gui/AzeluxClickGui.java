@@ -116,16 +116,15 @@ public class AzeluxClickGui extends Screen {
 
     // ── Nav ───────────────────────────────────────────────────────────────────
     private void renderNav(DrawContext ctx, int mx, int my) {
-        // Logo + "AZELUX CLIENT" are baked into background.png — do NOT re-render them.
-        // Tabs are placed in the right portion of the header bar to avoid overlap.
+        // Logo + "AZELUX CLIENT" baked into background.png — nothing to render here for title.
+        // Right-align tabs so they always sit in the empty right half of the header bar.
         int[] tabWidths = new int[TABS.length];
         int totalW = 0;
         for (int i = 0; i < TABS.length; i++) {
             tabWidths[i] = textRenderer.getWidth(TABS[i]) + 22;
             totalW += tabWidths[i] + 4;
         }
-        // Anchor tabs: start from 45% across the panel so they clear the baked-in title
-        int tabX = panX + (int)(panW * 0.45f);
+        int tabX = panX + panW - totalW - 10;  // right-aligned with 10px margin
         int tabH  = 16;
         int tabY  = panY + (navH - tabH) / 2;
         for (int i = 0; i < TABS.length; i++) {
@@ -304,7 +303,7 @@ public class AzeluxClickGui extends Screen {
             tabWidths[i] = textRenderer.getWidth(TABS[i]) + 22;
             totalW += tabWidths[i] + 4;
         }
-        int tabX = panX + (int)(panW * 0.45f);
+        int tabX = panX + panW - totalW - 10;
         int tabH = 16, tabY = panY + (navH - 16) / 2;
         for (int i = 0; i < TABS.length; i++) {
             if (mx >= tabX && mx < tabX + tabWidths[i] && my >= tabY && my < tabY + tabH) {
