@@ -29,7 +29,7 @@ public class AzeluxClickGui extends Screen {
     private static final Identifier T_SWITCH_OFF   = tex("switch_off");
     private static final Identifier T_SWITCH_BG    = tex("switch_background");
     private static final Identifier T_BTN_DEFAULT  = tex("button_default");
-    private static final Identifier T_BTN_LESS     = tex("button_less");
+    private static final Identifier T_BG         = tex("background");
 
     private static Identifier tex(String name) {
         return Identifier.of("azeluxclient", "textures/gui/" + name + ".png");
@@ -100,11 +100,9 @@ public class AzeluxClickGui extends Screen {
     public void render(DrawContext ctx, int mx, int my, float delta) {
         ctx.fill(0, 0, width, height, 0x55000000);
 
-        fillRounded(ctx, panX, panY, panX + panW, panY + panH, C_PANEL, R);
-        fillRoundedTop(ctx, panX, panY, panX + panW, panY + navH, C_NAV, R);
-        ctx.fill(panX + 1, panY + navH, panX + sideW, panY + panH - 1, C_SIDEBAR);
+        // Draw background.png as the entire panel (1072x658 source)
+        texScaled(ctx, T_BG, panX, panY, panW, panH, 1072, 658);
 
-        ctx.fill(panX + R, panY + navH, panX + panW - R, panY + navH + 1, 0x44FFFFFF);
         ctx.fill(panX + sideW, panY + navH + 4, panX + sideW + 1, panY + panH - 4, 0x33FFFFFF);
 
         renderNav(ctx, mx, my);
@@ -117,19 +115,16 @@ public class AzeluxClickGui extends Screen {
 
     // ── Nav ───────────────────────────────────────────────────────────────────
     private void renderNav(DrawContext ctx, int mx, int my) {
-        int logoSz = navH - 6;
-        int lx = panX + 8, ly = panY + (navH - logoSz) / 2;
-        texScaled(ctx, T_LOGO, lx, ly, logoSz, logoSz, 281, 282);
-        ctx.drawText(textRenderer, "AZELUX CLIENT",
-                lx + logoSz + 5, panY + navH / 2 - 4, C_WHITE, false);
-
+        // Logo + "AZELUX CLIENT" are baked into background.png — do NOT re-render them.
+        // Tabs are placed in the right portion of the header bar to avoid overlap.
         int[] tabWidths = new int[TABS.length];
         int totalW = 0;
         for (int i = 0; i < TABS.length; i++) {
             tabWidths[i] = textRenderer.getWidth(TABS[i]) + 22;
             totalW += tabWidths[i] + 4;
         }
-        int tabX = panX + (panW - totalW) / 2;
+        // Anchor tabs: start from 45% across the panel so they clear the baked-in title
+        int tabX = panX + (int)(panW * 0.45f);
         int tabH  = 16;
         int tabY  = panY + (navH - tabH) / 2;
         for (int i = 0; i < TABS.length; i++) {
@@ -308,7 +303,7 @@ public class AzeluxClickGui extends Screen {
             tabWidths[i] = textRenderer.getWidth(TABS[i]) + 22;
             totalW += tabWidths[i] + 4;
         }
-        int tabX = panX + (panW - totalW) / 2;
+        int tabX = panX + (int)(panW * 0.45f);
         int tabH = 16, tabY = panY + (navH - 16) / 2;
         for (int i = 0; i < TABS.length; i++) {
             if (mx >= tabX && mx < tabX + tabWidths[i] && my >= tabY && my < tabY + tabH) {
