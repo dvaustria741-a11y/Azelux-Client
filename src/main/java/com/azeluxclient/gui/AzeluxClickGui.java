@@ -29,7 +29,8 @@ public class AzeluxClickGui extends Screen {
     private static final Identifier T_SWITCH_OFF   = tex("switch_off");
     private static final Identifier T_SWITCH_BG    = tex("switch_background");
     private static final Identifier T_BTN_DEFAULT  = tex("button_default");
-    private static final Identifier T_BG         = tex("background");
+    private static final Identifier T_BTN_LESS     = tex("button_less");
+    private static final Identifier T_BG           = tex("background");
 
     private static Identifier tex(String name) {
         return Identifier.of("azeluxclient", "textures/gui/" + name + ".png");
