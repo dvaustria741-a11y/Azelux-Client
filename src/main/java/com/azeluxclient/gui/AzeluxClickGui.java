@@ -31,6 +31,7 @@ public class AzeluxClickGui extends Screen {
     private static final Identifier T_BTN_DEFAULT  = tex("button_default");
     private static final Identifier T_BTN_LESS     = tex("button_less");
     private static final Identifier T_BG           = tex("background");
+    private static final Identifier T_SIDEBAR_IMG  = tex("side_bar");
 
     private static Identifier tex(String name) {
         return Identifier.of("azeluxclient", "textures/gui/" + name + ".png");
@@ -101,10 +102,14 @@ public class AzeluxClickGui extends Screen {
     public void render(DrawContext ctx, int mx, int my, float delta) {
         ctx.fill(0, 0, width, height, 0x55000000);
 
-        // Draw background.png at full opacity, then overlay a subtle dark tint for translucency
+        // Background panel (original Bedrock asset, 1072x658)
         texScaled(ctx, T_BG, panX, panY, panW, panH, 1072, 658);
+        // Transparency overlay so game world bleeds through
         ctx.fill(panX, panY, panX + panW, panY + panH, 0x33000000);
 
+        // Sidebar image anchored to left (original Bedrock asset, 217x610)
+        texScaled(ctx, T_SIDEBAR_IMG, panX, panY + navH, sideW, panH - navH, 217, 610);
+        // Divider line
         ctx.fill(panX + sideW, panY + navH + 4, panX + sideW + 1, panY + panH - 4, 0x33FFFFFF);
 
         renderNav(ctx, mx, my);
@@ -117,29 +122,29 @@ public class AzeluxClickGui extends Screen {
 
     // ── Nav ───────────────────────────────────────────────────────────────────
     private void renderNav(DrawContext ctx, int mx, int my) {
-        // Logo + "AZELUX CLIENT" baked into background.png — nothing to render for title.
-        // Center tabs horizontally in the header bar.
+        // Bedrock JSON: tab_list anchor_from="top_middle" offset=[0,5]
+        // Tabs are perfectly centered in the full panel width, 5px down from top.
+        // Logo+title baked into background.png — not rendered in code.
         int[] tabWidths = new int[TABS.length];
         int totalW = 0;
         for (int i = 0; i < TABS.length; i++) {
             tabWidths[i] = textRenderer.getWidth(TABS[i]) + 22;
-            totalW += tabWidths[i] + 4;
+            totalW += tabWidths[i] + 3;
         }
+        totalW -= 3;
         int tabX = panX + (panW - totalW) / 2;
-        int tabH  = 16;
-        int tabY  = panY + (navH - tabH) / 2;
+        int tabH = 16;
+        int tabY = panY + 5;
         for (int i = 0; i < TABS.length; i++) {
             int tw = tabWidths[i];
             boolean sel = (activeTab == i);
-            // Semi-transparent tab buttons: selected slightly more opaque
             texScaled(ctx, sel ? T_BTN_DEFAULT : T_BTN_LESS, tabX, tabY, tw, tabH, 249, 249);
-            // Semi-transparent overlay on unselected tabs
-            if (!sel) ctx.fill(tabX, tabY, tabX + tw, tabY + tabH, 0x66000000);
+            if (!sel) ctx.fill(tabX, tabY, tabX + tw, tabY + tabH, 0x55000000);
             ctx.drawText(textRenderer, TABS[i],
                     tabX + (tw - textRenderer.getWidth(TABS[i])) / 2,
                     tabY + tabH / 2 - 4,
                     sel ? C_WHITE : C_DIM, false);
-            tabX += tw + 4;
+            tabX += tw + 3;
         }
     }
 
@@ -307,13 +312,16 @@ public class AzeluxClickGui extends Screen {
             tabWidths[i] = textRenderer.getWidth(TABS[i]) + 22;
             totalW += tabWidths[i] + 4;
         }
-        int tabX = panX + (panW - totalW) / 2;
-        int tabH = 16, tabY = panY + (navH - 16) / 2;
+        int totalW2 = 0;
+        for (int i = 0; i < TABS.length; i++) totalW2 += tabWidths[i] + 3;
+        totalW2 -= 3;
+        int tabX = panX + (panW - totalW2) / 2;
+        int tabH = 16, tabY = panY + 5;
         for (int i = 0; i < TABS.length; i++) {
             if (mx >= tabX && mx < tabX + tabWidths[i] && my >= tabY && my < tabY + tabH) {
                 activeTab = i; optModule = null; return true;
             }
-            tabX += tabWidths[i] + 4;
+            tabX += tabWidths[i] + 3;
         }
 
         if (optModule != null) {
