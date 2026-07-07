@@ -78,7 +78,7 @@ public class AzeluxClickGui extends Screen {
 
     @Override
     protected void init() {
-        panW  = (int)(width  * 0.70f);
+        panW  = (int)(width  * 0.62f);
         panH  = (int)(height * 0.91f);
         panX  = (width  - panW) / 2;
         panY  = (height - panH) / 2;
@@ -156,18 +156,7 @@ public class AzeluxClickGui extends Screen {
         ctx.drawText(textRenderer, "Default", sx + 6, nameRowY + 6, C_WHITE, false);
         ctx.drawText(textRenderer, "\u270E", sideRight - 10, nameRowY + 6, C_GRAY, false);
 
-        int descY = nameRowY + 26;
-        String[] descLines = {
-            "Mods that are marked",
-            "with \u25CF require you to",
-            "save your config, to",
-            "make them work."
-        };
-        for (String line : descLines) {
-            int lineX = sx + (sideContentW - textRenderer.getWidth(line)) / 2;
-            ctx.drawText(textRenderer, line, lineX, descY, C_GRAY, false);
-            descY += 9;
-        }
+        // sidebar description intentionally omitted
     }
 
     // ── Module grid ───────────────────────────────────────────────────────────
