@@ -5,6 +5,7 @@ import com.azeluxclient.module.ModuleManager;
 import com.azeluxclient.setting.BooleanSetting;
 import com.azeluxclient.setting.Setting;
 import com.azeluxclient.setting.SliderSetting;
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
@@ -102,9 +103,9 @@ public class AzeluxClickGui extends Screen {
         ctx.fill(0, 0, width, height, 0x55000000);
 
         // Draw background.png semi-transparently for translucent dark-glass effect
-        net.minecraft.client.render.RenderSystem.setShaderColor(1f, 1f, 1f, 0.80f);
+        RenderSystem.setShaderColor(1f, 1f, 1f, 0.80f);
         texScaled(ctx, T_BG, panX, panY, panW, panH, 1072, 658);
-        net.minecraft.client.render.RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 
         ctx.fill(panX + sideW, panY + navH + 4, panX + sideW + 1, panY + panH - 4, 0x33FFFFFF);
 
@@ -133,9 +134,9 @@ public class AzeluxClickGui extends Screen {
             int tw = tabWidths[i];
             boolean sel = (activeTab == i);
             // Semi-transparent tab buttons: selected slightly more opaque
-            net.minecraft.client.render.RenderSystem.setShaderColor(1f, 1f, 1f, sel ? 0.85f : 0.50f);
+            RenderSystem.setShaderColor(1f, 1f, 1f, sel ? 0.85f : 0.50f);
             texScaled(ctx, sel ? T_BTN_DEFAULT : T_BTN_LESS, tabX, tabY, tw, tabH, 249, 249);
-            net.minecraft.client.render.RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+            RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
             ctx.drawText(textRenderer, TABS[i],
                     tabX + (tw - textRenderer.getWidth(TABS[i])) / 2,
                     tabY + tabH / 2 - 4,
