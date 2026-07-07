@@ -11,7 +11,9 @@ public abstract class Module {
         MOVEMENT("Movement"),
         RENDER("Render"),
         HUD("HUD"),
-        MISC("Misc");
+        MISC("Misc"),
+        PLAYER("Player"),
+        WORLD("World");
 
         public final String display;
         Category(String d) { this.display = d; }
@@ -29,13 +31,11 @@ public abstract class Module {
         this.category = category;
     }
 
-    // Convenience: register a setting and return it (allows field initializers)
     protected <T extends Setting<?>> T register(T setting) {
         settings.add(setting);
         return setting;
     }
 
-    // Shorthand for MinecraftClient.getInstance() so subclasses can use mc()
     protected MinecraftClient mc() { return MinecraftClient.getInstance(); }
 
     public String getName()        { return name; }
