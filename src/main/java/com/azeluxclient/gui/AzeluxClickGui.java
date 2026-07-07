@@ -316,7 +316,9 @@ public class AzeluxClickGui extends Screen {
         int totalW2 = 0;
         for (int i = 0; i < TABS.length; i++) totalW2 += tabWidths[i] + 3;
         totalW2 -= 3;
-        int tabX = panX + (panW - totalW2) / 2;
+        int logoEnd2 = panX + (int)(panW * 0.28f);
+        int rightEnd2 = panX + panW - 8;
+        int tabX = logoEnd2 + (rightEnd2 - logoEnd2 - totalW2) / 2;
         int tabH = 16, tabY = panY + 5;
         for (int i = 0; i < TABS.length; i++) {
             if (mx >= tabX && mx < tabX + tabWidths[i] && my >= tabY && my < tabY + tabH) {
