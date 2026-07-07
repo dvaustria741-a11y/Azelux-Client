@@ -102,10 +102,8 @@ public class AzeluxClickGui extends Screen {
     public void render(DrawContext ctx, int mx, int my, float delta) {
         ctx.fill(0, 0, width, height, 0x55000000);
 
-        // Background panel (original Bedrock asset, 1072x658)
+        // Background panel (original Bedrock asset 1072x658, already ~75% opaque by design)
         texScaled(ctx, T_BG, panX, panY, panW, panH, 1072, 658);
-        // Transparency overlay so game world bleeds through
-        ctx.fill(panX, panY, panX + panW, panY + panH, 0x33000000);
 
         // Sidebar image anchored to left (original Bedrock asset, 217x610)
         texScaled(ctx, T_SIDEBAR_IMG, panX, panY + navH, sideW, panH - navH, 217, 610);
@@ -132,7 +130,10 @@ public class AzeluxClickGui extends Screen {
             totalW += tabWidths[i] + 3;
         }
         totalW -= 3;
-        int tabX = panX + (panW - totalW) / 2;
+        // Logo occupies ~26% of panel width; center tabs in the remaining right space
+        int logoEnd = panX + (int)(panW * 0.28f);
+        int rightEnd = panX + panW - 8;
+        int tabX = logoEnd + (rightEnd - logoEnd - totalW) / 2;
         int tabH = 16;
         int tabY = panY + 5;
         for (int i = 0; i < TABS.length; i++) {
