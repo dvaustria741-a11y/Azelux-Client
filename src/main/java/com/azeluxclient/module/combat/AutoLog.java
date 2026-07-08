@@ -8,8 +8,8 @@ import net.minecraft.network.packet.s2c.common.DisconnectS2CPacket;
 import net.minecraft.text.Text;
 
 public class AutoLog extends Module {
-    private final SliderSetting health      = register(new SliderSetting("Health", 6.0, 1.0, 19.0));
-    private final BooleanSetting toggleOff  = register(new BooleanSetting("Toggle Off", true));
+    private final SliderSetting health     = register(new SliderSetting("Health", 6.0, 1.0, 19.0));
+    private final BooleanSetting toggleOff = register(new BooleanSetting("Toggle Off", true));
 
     public AutoLog() {
         super("AutoLog", "Automatically disconnects when your health drops below a threshold.", Category.COMBAT);
@@ -19,10 +19,11 @@ public class AutoLog extends Module {
     public void onTick(MinecraftClient client) {
         if (client.player == null) return;
         float hp = client.player.getHealth();
-        if (hp <= 0 || hp > (float) health.getValue()) return;
+        // Fix: explicit double unbox before float cast
+        if (hp <= 0 || hp > (float)(double) health.getValue()) return;
 
         client.player.networkHandler.onDisconnect(
-            new DisconnectS2CPacket(Text.literal("[AutoLog] Health below " + (int) health.getValue()))
+            new DisconnectS2CPacket(Text.literal("[AutoLog] Health below " + health.getValue().intValue()))
         );
         if (toggleOff.getValue()) toggle();
     }
