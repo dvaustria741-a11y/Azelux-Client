@@ -18,13 +18,14 @@ public class AutoEat extends Module {
     @Override
     public void onTick(MinecraftClient client) {
         if (client.player == null || client.interactionManager == null) return;
-        if (client.player.getHungerManager().getFoodLevel() > (int) threshold.getValue()) return;
+        // Fix: intValue() for Double -> int comparison
+        if (client.player.getHungerManager().getFoodLevel() > threshold.getValue().intValue()) return;
 
         PlayerInventory inv = client.player.getInventory();
         for (int i = 0; i < 9; i++) {
             ItemStack stack = inv.getStack(i);
             if (stack.contains(DataComponentTypes.FOOD)) {
-                inv.selectedSlot = i;
+                inv.selectedSlot = i;  // Now accessible via AW
                 client.interactionManager.interactItem(client.player, Hand.MAIN_HAND);
                 return;
             }
