@@ -9,6 +9,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -22,9 +24,26 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build with Gradle
-        run: ./gradlew build
+        id: build
+        run: ./gradlew build 2>&1 | tee /tmp/build.log; exit ${PIPESTATUS[0]}
+
+      - name: Save error log on failure
+        if: failure() && steps.build.outcome == 'failure'
+        run: |
+          git config user.email "ci@azelux.dev"
+          git config user.name "Azelux CI"
+          git pull --rebase
+          mkdir -p .ci-logs
+          grep -E "(error:|\.java:[0-9]+:|cannot find|does not exist|is not abstract|cannot resolve)" /tmp/build.log \
+            | head -100 > .ci-logs/last-build-error.log
+          echo "---FULL TAIL---" >> .ci-logs/last-build-error.log
+          tail -80 /tmp/build.log >> .ci-logs/last-build-error.log
+          git add .ci-logs/last-build-error.log
+          git commit -m "ci: save build errors [skip ci]"
+          git push
 
       - name: Upload artifact
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: azeluxclient-mod
