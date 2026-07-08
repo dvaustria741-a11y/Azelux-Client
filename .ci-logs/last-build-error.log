@@ -2,6 +2,8 @@ Cannot remap modifiers because it does not exists in any of the targets [] or th
 /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/world/Nuker.java:22: error: incompatible types: Double cannot be converted to int
 /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/Nametags.java:47: error: cannot find symbol
 /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/Nametags.java:47: error: cannot find symbol
+/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/Breadcrumbs.java:32: error: cannot find symbol
+/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/TimeChanger.java:32: error: incompatible types: Double cannot be converted to long
 /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/player/SpeedMine.java:19: error: incompatible types: Double cannot be converted to int
 /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/player/AutoReplenish.java:26: error: incompatible types: Double cannot be converted to int
 /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/player/AutoEat.java:21: error: incompatible types: Double cannot be converted to int
@@ -10,6 +12,7 @@ Cannot remap modifiers because it does not exists in any of the targets [] or th
 /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/AutoArmor.java:41: error: cannot find symbol
 /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/misc/Spam.java:19: error: incompatible types: Double cannot be converted to int
   /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/world/Nuker.java:22: error: incompatible types: Double cannot be converted to int
+  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/TimeChanger.java:32: error: incompatible types: Double cannot be converted to long
   /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/player/SpeedMine.java:19: error: incompatible types: Double cannot be converted to int
   /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/player/AutoReplenish.java:26: error: incompatible types: Double cannot be converted to int
   /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/player/AutoEat.java:21: error: incompatible types: Double cannot be converted to int
@@ -19,21 +22,14 @@ Cannot remap modifiers because it does not exists in any of the targets [] or th
   /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/AutoTotem.java:21: error: cannot find symbol
   /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/AutoArmor.java:36: error: cannot find symbol
   /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/AutoArmor.java:41: error: cannot find symbol
+  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/Breadcrumbs.java:32: error: cannot find symbol
 ---FULL TAIL---
-                                        ^
-  symbol:   variable armor
-  location: variable inv of type PlayerInventory
-/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/AutoArmor.java:41: error: cannot find symbol
-                if (stack.getItem() instanceof ArmorItem ai && ai.getSlotType() == slot) {
-                                               ^
-  symbol:   class ArmorItem
-  location: class AutoArmor
 /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/misc/Spam.java:19: error: incompatible types: Double cannot be converted to int
         if (++ticker >= (int) delay.getValue()) {
                                             ^
 Note: /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/HudRenderer.java uses or overrides a deprecated API.
 Note: Recompile with -Xlint:deprecation for details.
-10 errors
+12 errors
 
 > Task :compileJava FAILED
 
@@ -49,6 +45,9 @@ Execution failed for task ':compileJava' (registered by plugin class 'org.gradle
   /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/world/Nuker.java:22: error: incompatible types: Double cannot be converted to int
           int r = (int) range.getValue();
                                       ^
+  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/TimeChanger.java:32: error: incompatible types: Double cannot be converted to long
+          client.world.getLevelProperties().setTimeOfDay((long) time.getValue());
+                                                                             ^
   /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/player/SpeedMine.java:19: error: incompatible types: Double cannot be converted to int
           int amplifier = (int) level.getValue() - 1;
                                               ^
@@ -86,7 +85,12 @@ Execution failed for task ':compileJava' (registered by plugin class 'org.gradle
                                                  ^
     symbol:   class ArmorItem
     location: class AutoArmor
-  10 errors
+  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/Breadcrumbs.java:32: error: cannot find symbol
+          Vec3d pos = client.player.getPos();
+                                   ^
+    symbol:   method getPos()
+    location: variable player of type ClientPlayerEntity
+  12 errors
 
 * Try:
 > Check your code and dependencies to fix the compilation error(s)
@@ -98,5 +102,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/9.6.1/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 47s
+BUILD FAILED in 51s
 1 actionable task: 1 executed
