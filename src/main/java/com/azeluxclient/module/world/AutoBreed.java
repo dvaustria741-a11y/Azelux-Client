@@ -21,21 +21,20 @@ public class AutoBreed extends Module {
 
     @Override
     public void onTick(MinecraftClient client) {
-        if (client.player == null || client.world == null) return;
+        if (client.player == null || client.world == null || client.interactionManager == null) return;
         if (cooldown > 0) { cooldown--; return; }
 
-        // Check if held item is food that animals eat
         ItemStack held = client.player.getMainHandStack();
         if (held.isEmpty() || held.get(DataComponentTypes.FOOD) == null) return;
 
-        Box box = client.player.getBoundingBox().expand(range.getValue());
+        double r = range.getValue();
+        Box box = client.player.getBoundingBox().expand(r);
         List<AnimalEntity> animals = client.world.getEntitiesByClass(AnimalEntity.class, box,
             a -> a.isAlive() && !a.isBaby() && !a.isInLove());
 
         for (AnimalEntity animal : animals) {
-            if (client.player.squaredDistanceTo(animal) > range.getValue() * range.getValue()) continue;
-            client.interactionManager.interactEntityAtLocation(client.player, animal,
-                new net.minecraft.util.hit.EntityHitResult(animal), Hand.MAIN_HAND);
+            if (client.player.squaredDistanceTo(animal) > r * r) continue;
+            client.interactionManager.interactEntity(client.player, animal, Hand.MAIN_HAND);
             cooldown = 10;
             return;
         }
