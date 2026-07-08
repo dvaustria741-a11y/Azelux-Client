@@ -29,7 +29,8 @@ public class Breadcrumbs extends Module {
     @Override
     public void onTick(MinecraftClient client) {
         if (client.player == null) return;
-        Vec3d pos = client.player.getPos();
+        // Use getX/Y/Z instead of getPos()
+        Vec3d pos = new Vec3d(client.player.getX(), client.player.getY(), client.player.getZ());
         if (lastPos == null || lastPos.squaredDistanceTo(pos) > 0.25) {
             trail.add(pos);
             if (trail.size() > MAX_TRAIL) trail.remove(0);
@@ -61,8 +62,8 @@ public class Breadcrumbs extends Module {
             float bx=(float)(b.x-camPos.x), by=(float)(b.y-camPos.y+0.1), bz=(float)(b.z-camPos.z);
             float dx=bx-ax, dy=by-ay, dz=bz-az;
             float len=(float)Math.sqrt(dx*dx+dy*dy+dz*dz);
-            if(len==0) continue;
-            float progress = (float)i / trail.size();
+            if (len == 0) continue;
+            float progress = (float) i / trail.size();
             lines.vertex(mat,ax,ay,az).color(0.4f,0.6f,1f,progress).normal(entry,dx/len,dy/len,dz/len);
             lines.vertex(mat,bx,by,bz).color(0.4f,0.6f,1f,progress).normal(entry,dx/len,dy/len,dz/len);
         }
