@@ -20,9 +20,11 @@ public class SafeWalk extends Module {
         Vec3d vel = client.player.getVelocity();
         if (Math.abs(vel.x) < 0.003 && Math.abs(vel.z) < 0.003) return;
 
-        Vec3d pos = client.player.getPos();
-        // Predict where the player is heading and check if ground exists there
-        BlockPos ahead = BlockPos.ofFloored(pos.x + vel.x * 5, pos.y - 0.5, pos.z + vel.z * 5);
+        double px = client.player.getX();
+        double py = client.player.getY();
+        double pz = client.player.getZ();
+
+        BlockPos ahead = BlockPos.ofFloored(px + vel.x * 5, py - 0.5, pz + vel.z * 5);
         BlockState state = client.world.getBlockState(ahead);
 
         if (state.isAir()) {
