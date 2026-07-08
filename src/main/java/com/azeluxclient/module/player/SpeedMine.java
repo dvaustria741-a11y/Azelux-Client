@@ -16,7 +16,7 @@ public class SpeedMine extends Module {
     @Override
     public void onTick(MinecraftClient client) {
         if (client.player == null) return;
-        int amplifier = (int) level.getValue() - 1;
+        int amplifier = level.getValue().intValue() - 1;  // Fix: intValue()
         var eff = client.player.getStatusEffect(StatusEffects.HASTE);
         if (eff != null && eff.getAmplifier() >= amplifier && eff.getDuration() > 20) return;
         client.player.addStatusEffect(new StatusEffectInstance(StatusEffects.HASTE, 60, amplifier, false, false));
