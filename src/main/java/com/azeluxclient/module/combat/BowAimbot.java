@@ -24,12 +24,10 @@ public class BowAimbot extends Module {
     @Override
     public void onTick(MinecraftClient client) {
         if (client.player == null || client.world == null) return;
+        if (client.player.getMainHandStack().getItem() != Items.BOW || !client.player.isUsingItem()) return;
 
-        // Only when holding bow and charging
-        boolean holdingBow = client.player.getMainHandStack().getItem() == Items.BOW;
-        if (!holdingBow || !client.player.isUsingItem()) return;
-
-        Box box = client.player.getBoundingBox().expand(range.getValue());
+        double r = range.getValue();
+        Box box = client.player.getBoundingBox().expand(r);
         List<LivingEntity> targets = client.world.getEntitiesByClass(LivingEntity.class, box,
             e -> e != client.player && !e.isDead()
                 && !(e instanceof PlayerEntity p && p.isCreative()));
@@ -38,16 +36,21 @@ public class BowAimbot extends Module {
             .min(Comparator.comparingDouble(e -> e.squaredDistanceTo(client.player)))
             .ifPresent(target -> {
                 float charge = BowItem.getPullProgress(client.player.getItemUseTime());
-                Vec3d pos = target.getPos().add(0, target.getHeight() / 2.0, 0);
-                double dx = pos.x - client.player.getX();
-                double dy = pos.y - client.player.getEyeY();
-                double dz = pos.z - client.player.getZ();
+
+                // Use getX/Y/Z instead of getPos()
+                double tx = target.getX();
+                double ty = target.getY() + target.getHeight() / 2.0;
+                double tz = target.getZ();
+
+                double dx = tx - client.player.getX();
+                double dy = ty - client.player.getEyeY();
+                double dz = tz - client.player.getZ();
                 double hDist = Math.sqrt(dx * dx + dz * dz);
 
-                // Trajectory compensation
-                float g = 0.006f;
-                float v = charge;
-                double pitchRad = -Math.atan2(dy, hDist) + Math.asin(g * hDist / (v * v + 0.0001)) * 0.5;
+                double g = 0.006;
+                double v = Math.max(charge, 0.01);
+                double pitchRad = -Math.atan2(dy, hDist) + Math.asin(g * hDist / (v * v)) * 0.5;
+
                 float yaw   = (float) Math.toDegrees(Math.atan2(-dx, dz));
                 float pitch = (float) -Math.toDegrees(pitchRad);
 
