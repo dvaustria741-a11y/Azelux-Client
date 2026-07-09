@@ -2,9 +2,12 @@ package com.azeluxclient.module.combat;
 
 import com.azeluxclient.module.Module;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.EquippableComponent;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.item.*;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.screen.slot.SlotActionType;
 
 public class AutoArmor extends Module {
@@ -33,12 +36,13 @@ public class AutoArmor extends Module {
             };
             if (slot == null) continue;
 
-            int bestVal = armorValue(inv.armor.get(armorIdx));
+            int bestVal = armorValue(client.player.getEquippedStack(slot));
             int bestInvIdx = -1;
 
             for (int i = 0; i < inv.main.size(); i++) {
                 ItemStack stack = inv.main.get(i);
-                if (stack.getItem() instanceof ArmorItem ai && ai.getSlotType() == slot) {
+                EquippableComponent eq = stack.get(DataComponentTypes.EQUIPPABLE);
+                if (eq != null && eq.slot() == slot) {
                     int val = armorValue(stack);
                     if (val > bestVal) { bestVal = val; bestInvIdx = i; }
                 }
@@ -46,7 +50,7 @@ public class AutoArmor extends Module {
 
             if (bestInvIdx >= 0) {
                 int invScreen   = bestInvIdx < 9 ? bestInvIdx + 36 : bestInvIdx;
-                int armorScreen = 8 - armorIdx; // HEAD=5, CHEST=6, LEGS=7, FEET=8
+                int armorScreen = 8 - armorIdx;
                 client.interactionManager.clickSlot(syncId, invScreen, 0, SlotActionType.PICKUP, client.player);
                 client.interactionManager.clickSlot(syncId, armorScreen, 0, SlotActionType.PICKUP, client.player);
                 if (!client.player.currentScreenHandler.getCursorStack().isEmpty()) {
@@ -59,7 +63,7 @@ public class AutoArmor extends Module {
 
     private int armorValue(ItemStack stack) {
         if (stack.isEmpty()) return 0;
-        Item item = stack.getItem();
+        var item = stack.getItem();
         if (item == Items.NETHERITE_HELMET || item == Items.NETHERITE_CHESTPLATE ||
             item == Items.NETHERITE_LEGGINGS || item == Items.NETHERITE_BOOTS) return 6;
         if (item == Items.DIAMOND_HELMET || item == Items.DIAMOND_CHESTPLATE ||
@@ -75,3 +79,4 @@ public class AutoArmor extends Module {
         return 0;
     }
 }
+
