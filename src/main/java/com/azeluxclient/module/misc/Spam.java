@@ -16,7 +16,7 @@ public class Spam extends Module {
     @Override
     public void onTick(MinecraftClient client) {
         if (client.player == null || client.getNetworkHandler() == null) return;
-        if (++ticker >= (int) delay.getValue()) {
+        if (++ticker >= (int)(double) delay.getValue()) {
             ticker = 0;
             client.player.networkHandler.sendChatMessage(message);
         }
@@ -26,3 +26,4 @@ public class Spam extends Module {
 
     public void setMessage(String msg) { this.message = msg; }
 }
+
