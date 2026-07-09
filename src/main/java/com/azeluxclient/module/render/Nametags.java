@@ -4,6 +4,7 @@ import com.azeluxclient.module.Module;
 import com.azeluxclient.setting.BooleanSetting;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.RenderLayers;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
@@ -13,9 +14,12 @@ import net.minecraft.client.render.state.CameraRenderState;
 import net.minecraft.client.render.state.WorldRenderState;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.EntityType;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
 import org.joml.Matrix4f;
+
+import java.util.List;
 
 public class Nametags extends Module {
     private final BooleanSetting players = register(new BooleanSetting("Players", true));
@@ -38,13 +42,29 @@ public class Nametags extends Module {
         Vec3d camPos = cam.pos;
         VertexConsumer lines = vcp.getBuffer(RenderLayers.LINES);
 
+        MinecraftClient mc = MinecraftClient.getInstance();
+
         for (EntityRenderState state : ws.entityRenderStates) {
-            if (!(state instanceof LivingEntityRenderState lr) || state.invisible) continue;
+            if (!(state instanceof LivingEntityRenderState) || state.invisible) continue;
             boolean isPlayer = state.entityType == EntityType.PLAYER;
             if (isPlayer && !players.getValue()) continue;
             if (!isPlayer && !mobs.getValue()) continue;
 
-            float ratio = Math.min(1f, Math.max(0f, lr.health / lr.maxHealth));
+            // 1.21.5+: health/maxHealth were removed from LivingEntityRenderState.
+            // Look up the live entity from the world by position to get health info.
+            float ratio = 0.5f;
+            if (mc.world != null) {
+                Box searchBox = Box.of(new Vec3d(state.x, state.y + 0.9, state.z), 1.0, 1.8, 1.0);
+                List<LivingEntity> found = mc.world.getEntitiesByClass(
+                        LivingEntity.class, searchBox, e -> e.getType() == state.entityType);
+                if (!found.isEmpty()) {
+                    LivingEntity le = found.get(0);
+                    float max = le.getMaxHealth();
+                    ratio = max > 0f ? le.getHealth() / max : 0f;
+                }
+            }
+            ratio = Math.min(1f, Math.max(0f, ratio));
+
             float r = ratio < 0.5f ? 1f : 2f * (1f - ratio);
             float g = ratio > 0.5f ? 1f : 2f * ratio;
 
