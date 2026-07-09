@@ -1,22 +1,28 @@
 Cannot remap modifiers because it does not exists in any of the targets [] or their parents.
-/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/Nametags.java:47: error: cannot find symbol
-/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/Nametags.java:47: error: cannot find symbol
 /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/AutoTotem.java:21: error: cannot find symbol
 /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/AutoArmor.java:36: error: cannot find symbol
 /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/AutoArmor.java:41: error: cannot find symbol
 /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/misc/Spam.java:19: error: incompatible types: Double cannot be converted to int
   /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/misc/Spam.java:19: error: incompatible types: Double cannot be converted to int
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/Nametags.java:47: error: cannot find symbol
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/Nametags.java:47: error: cannot find symbol
   /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/AutoTotem.java:21: error: cannot find symbol
   /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/AutoArmor.java:36: error: cannot find symbol
   /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/AutoArmor.java:41: error: cannot find symbol
 ---FULL TAIL---
-/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/Nametags.java:47: error: cannot find symbol
-            float ratio = Math.min(1f, Math.max(0f, lr.health / lr.maxHealth));
-                                                                  ^
-  symbol:   variable maxHealth
-  location: variable lr of type LivingEntityRenderState
+Here are the highlights of this release:
+ - Improved Configuration Cache hit rates
+ - Additional CLI rendering options
+ - Important project hierarchy lookup deprecations
+
+For more details see https://docs.gradle.org/9.6.1/release-notes.html
+
+Starting a Gradle Daemon (subsequent builds will be faster)
+
+> Configure project :
+Fabric Loom: 1.14.10
+
+Cannot remap modifiers because it does not exists in any of the targets [] or their parents.
+
+> Task :compileJava
 /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/AutoTotem.java:21: error: cannot find symbol
         if (inv.offHand.get(0).isOf(Items.TOTEM_OF_UNDYING)) return;
                ^
@@ -37,7 +43,7 @@ Cannot remap modifiers because it does not exists in any of the targets [] or th
                                             ^
 Note: /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/HudRenderer.java uses or overrides a deprecated API.
 Note: Recompile with -Xlint:deprecation for details.
-6 errors
+4 errors
 
 > Task :compileJava FAILED
 
@@ -53,16 +59,6 @@ Execution failed for task ':compileJava' (registered by plugin class 'org.gradle
   /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/misc/Spam.java:19: error: incompatible types: Double cannot be converted to int
           if (++ticker >= (int) delay.getValue()) {
                                               ^
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/Nametags.java:47: error: cannot find symbol
-              float ratio = Math.min(1f, Math.max(0f, lr.health / lr.maxHealth));
-                                                        ^
-    symbol:   variable health
-    location: variable lr of type LivingEntityRenderState
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/Nametags.java:47: error: cannot find symbol
-              float ratio = Math.min(1f, Math.max(0f, lr.health / lr.maxHealth));
-                                                                    ^
-    symbol:   variable maxHealth
-    location: variable lr of type LivingEntityRenderState
   /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/AutoTotem.java:21: error: cannot find symbol
           if (inv.offHand.get(0).isOf(Items.TOTEM_OF_UNDYING)) return;
                  ^
@@ -78,7 +74,7 @@ Execution failed for task ':compileJava' (registered by plugin class 'org.gradle
                                                  ^
     symbol:   class ArmorItem
     location: class AutoArmor
-  6 errors
+  4 errors
 
 * Try:
 > Check your code and dependencies to fix the compilation error(s)
@@ -90,5 +86,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/9.6.1/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 54s
+BUILD FAILED in 1m
 1 actionable task: 1 executed
