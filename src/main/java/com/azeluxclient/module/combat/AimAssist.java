@@ -5,6 +5,7 @@ import com.azeluxclient.setting.BooleanSetting;
 import com.azeluxclient.setting.SliderSetting;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.scoreboard.AbstractTeam;
 import net.minecraft.util.math.Box;
@@ -16,10 +17,12 @@ import java.util.List;
 
 public class AimAssist extends Module {
 
-    private final SliderSetting  range     = register(new SliderSetting ("Range",         3.5,  1.0, 6.0));
-    private final SliderSetting  smooth    = register(new SliderSetting ("Smooth",         5.0,  1.0, 15.0));
-    private final BooleanSetting onAttack  = register(new BooleanSetting("Only On Attack", true));
-    private final BooleanSetting teamCheck = register(new BooleanSetting("Team Check",     false));
+    private final SliderSetting  range     = register(new SliderSetting ("Range",           3.5,  1.0, 6.0));
+    private final SliderSetting  smooth    = register(new SliderSetting ("Smooth",           5.0,  1.0, 15.0));
+    private final BooleanSetting players   = register(new BooleanSetting("Players",          true));
+    private final BooleanSetting mobs      = register(new BooleanSetting("Mobs",             true));
+    private final BooleanSetting onAttack  = register(new BooleanSetting("Only On Attack",   true));
+    private final BooleanSetting teamCheck = register(new BooleanSetting("Team Check",       false));
 
     public AimAssist() {
         super("AimAssist", "Smoothly aims at the nearest entity.", Category.COMBAT);
@@ -38,7 +41,7 @@ public class AimAssist extends Module {
                 LivingEntity.class, box,
                 e -> e != client.player
                         && !e.isDead()
-                        && !(e instanceof PlayerEntity p && p.isCreative())
+                        && isValidTarget(client, e)
                         && e.squaredDistanceTo(client.player) <= r * r
                         && !isTeammate(client, e)
         );
@@ -46,6 +49,16 @@ public class AimAssist extends Module {
         targets.stream()
                 .min(Comparator.comparingDouble(e -> e.squaredDistanceTo(client.player)))
                 .ifPresent(t -> aimAt(client, t));
+    }
+
+    private boolean isValidTarget(MinecraftClient client, LivingEntity e) {
+        if (e instanceof PlayerEntity p) {
+            return players.getValue() && !p.isCreative();
+        }
+        if (e instanceof MobEntity) {
+            return mobs.getValue();
+        }
+        return false;
     }
 
     private boolean isTeammate(MinecraftClient client, LivingEntity entity) {
@@ -61,8 +74,8 @@ public class AimAssist extends Module {
         Vec3d center = new Vec3d(target.getX(), target.getY() + target.getHeight() * 0.5, target.getZ());
         Vec3d d      = center.subtract(eyes);
 
-        double horizDist  = Math.sqrt(d.x * d.x + d.z * d.z);
-        float  targetYaw  = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
+        double horizDist   = Math.sqrt(d.x * d.x + d.z * d.z);
+        float  targetYaw   = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
         float  targetPitch = (float) Math.toDegrees(-Math.atan2(d.y, horizDist));
 
         float curYaw   = client.player.getYaw();
