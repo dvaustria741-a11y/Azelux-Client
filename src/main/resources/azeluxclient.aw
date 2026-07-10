@@ -1,5 +1,3 @@
-accessWidener	v2	named
-accessible	field	net/minecraft/entity/player/PlayerInventory	selectedSlot	I
-accessible	field	net/minecraft/entity/player/PlayerInventory	main	Lnet/minecraft/util/collection/DefaultedList;
-accessible	field	net/minecraft/entity/player/PlayerInventory	armor	Lnet/minecraft/util/collection/DefaultedList;
-accessible	field	net/minecraft/entity/player/PlayerInventory	offHand	Lnet/minecraft/util/collection/DefaultedList;
+accessWidener\tv2\tnamed
+accessible\tfield\tnet/minecraft/entity/player/PlayerInventory\tselectedSlot\tI
+accessible\tfield\tnet/minecraft/entity/player/PlayerInventory\tmain\tLnet/minecraft/util/collection/DefaultedList;
