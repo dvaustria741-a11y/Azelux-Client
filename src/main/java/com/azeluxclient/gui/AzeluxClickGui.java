@@ -545,6 +545,7 @@ public class AzeluxClickGui extends Screen {
             case "autoreplenish", "auto_replenish"                    -> "autoreplenish";
             case "autobreed", "auto_breed"                            -> "autobreed";
             case "autolog", "auto_log"                                -> "autolog";
+            case "autoweapon", "auto_weapon"                          -> "autoweapon";
             case "autoreconnect", "auto_reconnect"                    -> "autoreconnect";
             case "autorespawn", "auto_respawn"                        -> "autorespawn";
             case "noghostblocks", "no_ghost_blocks"                   -> "noghostblocks";
