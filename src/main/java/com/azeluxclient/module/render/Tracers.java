@@ -30,7 +30,7 @@ public class Tracers extends Module {
         VertexConsumerProvider vcp = ctx.consumers();
         if (matrices == null || vcp == null) return;
 
-        Vec3d cam = mc.gameRenderer.getCamera().getPos();
+        Vec3d cam = mc.gameRenderer.getCamera().getCameraPos();
         VertexConsumer lines = vcp.getBuffer(RenderLayers.LINES);
         MatrixStack.Entry entry = matrices.peek();
         Matrix4f mat = entry.getPositionMatrix();
@@ -55,4 +55,3 @@ public class Tracers extends Module {
         }
     }
 }
-
