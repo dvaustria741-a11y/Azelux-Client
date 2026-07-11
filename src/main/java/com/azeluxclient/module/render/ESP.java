@@ -30,7 +30,7 @@ public class ESP extends Module {
         VertexConsumerProvider vcp = ctx.consumers();
         if (matrices == null || vcp == null) return;
 
-        Vec3d cam = mc.gameRenderer.getCamera().getPosition();
+        Vec3d cam = mc.gameRenderer.getCamera().getPos();
         VertexConsumer lines = vcp.getBuffer(RenderLayers.LINES);
 
         for (Entity entity : mc.world.getEntities()) {
@@ -72,3 +72,4 @@ public class ESP extends Module {
         vc.vertex(m,x2,y2,z2).color(r,g,b,a).normal(e,dx/len,dy/len,dz/len);
     }
 }
+
