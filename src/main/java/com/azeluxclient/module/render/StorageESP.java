@@ -88,7 +88,7 @@ public class StorageESP extends Module {
         float dx=x2-x1, dy=y2-y1, dz=z2-z1;
         float len=(float)Math.sqrt(dx*dx+dy*dy+dz*dz);
         if(len==0) return;
-        vc.vertex(m,x1,y1,z1).color(r,g,b,a).normal(e,dx/len,dy/len,dz/len);
-        vc.vertex(m,x2,y2,z2).color(r,g,b,a).normal(e,dx/len,dy/len,dz/len);
+        vc.vertex(m,x1,y1,z1).color(r,g,b,a).normal(e,dx/len,dy/len,dz/len).lineWidth(1f);
+        vc.vertex(m,x2,y2,z2).color(r,g,b,a).normal(e,dx/len,dy/len,dz/len).lineWidth(1f);
     }
 }
