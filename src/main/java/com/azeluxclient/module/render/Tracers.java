@@ -50,8 +50,8 @@ public class Tracers extends Module {
             if (len < 0.001f) continue;
             float nx = ex/len, ny = ey/len, nz = ez/len;
 
-            lines.vertex(mat, 0, 0, 0).color(r, g, b, 1f).normal(entry, nx, ny, nz);
-            lines.vertex(mat, ex, ey, ez).color(r, g, b, 0.4f).normal(entry, nx, ny, nz);
+            lines.vertex(mat,0,0,0).color(r,g,b,1f).normal(entry,nx,ny,nz).lineWidth(1f);
+            lines.vertex(mat,ex,ey,ez).color(r,g,b,0.4f).normal(entry,nx,ny,nz).lineWidth(1f);
         }
     }
 }
