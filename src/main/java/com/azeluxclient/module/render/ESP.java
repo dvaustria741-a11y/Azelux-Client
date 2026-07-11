@@ -63,12 +63,12 @@ public class ESP extends Module {
     }
 
     private static void line(VertexConsumer vc, Matrix4f m, MatrixStack.Entry e,
-                              float x1, float y1, float z1, float x2, float y2, float z2,
-                              float r, float g, float b, float a) {
+                              float x1,float y1,float z1,float x2,float y2,float z2,
+                              float r,float g,float b,float a) {
         float dx=x2-x1, dy=y2-y1, dz=z2-z1;
         float len=(float)Math.sqrt(dx*dx+dy*dy+dz*dz);
         if(len==0) return;
-        vc.vertex(m,x1,y1,z1).color(r,g,b,a).normal(e,dx/len,dy/len,dz/len);
-        vc.vertex(m,x2,y2,z2).color(r,g,b,a).normal(e,dx/len,dy/len,dz/len);
+        vc.vertex(m,x1,y1,z1).color(r,g,b,a).normal(e,dx/len,dy/len,dz/len).lineWidth(1f);
+        vc.vertex(m,x2,y2,z2).color(r,g,b,a).normal(e,dx/len,dy/len,dz/len).lineWidth(1f);
     }
 }
