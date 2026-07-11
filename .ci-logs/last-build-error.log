@@ -1,8 +1,6 @@
 Cannot remap modifiers because it does not exists in any of the targets [] or their parents.
 /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/ESP.java:33: error: cannot find symbol
-/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/Tracers.java:33: error: cannot find symbol
   /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/ESP.java:33: error: cannot find symbol
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/Tracers.java:33: error: cannot find symbol
 ---FULL TAIL---
 Fetching distribution.
 Downloading https://services.gradle.org/distributions/gradle-9.6.1-bin.zip
@@ -30,14 +28,9 @@ Cannot remap modifiers because it does not exists in any of the targets [] or th
                                                ^
   symbol:   method getPos()
   location: class Camera
-/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/Tracers.java:33: error: cannot find symbol
-        Vec3d cam = mc.gameRenderer.getCamera().getPos();
-                                               ^
-  symbol:   method getPos()
-  location: class Camera
 Note: /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/HudRenderer.java uses or overrides a deprecated API.
 Note: Recompile with -Xlint:deprecation for details.
-2 errors
+1 error
 
 > Task :compileJava FAILED
 
@@ -55,12 +48,7 @@ Execution failed for task ':compileJava' (registered by plugin class 'org.gradle
                                                  ^
     symbol:   method getPos()
     location: class Camera
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/Tracers.java:33: error: cannot find symbol
-          Vec3d cam = mc.gameRenderer.getCamera().getPos();
-                                                 ^
-    symbol:   method getPos()
-    location: class Camera
-  2 errors
+  1 error
 
 * Try:
 > Check your code and dependencies to fix the compilation error(s)
@@ -72,5 +60,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/9.6.1/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 1m 3s
+BUILD FAILED in 1m 7s
 1 actionable task: 1 executed
