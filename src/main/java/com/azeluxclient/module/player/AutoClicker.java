@@ -75,6 +75,7 @@ public class AutoClicker extends Module {
 
         // Respect attack cooldown — don't click while the weapon is still
         // cooling down (also avoids the "impossibly fast swing" flag).
+        if (client.player.isUsingItem()) return;
         if (client.player.getAttackCooldownProgress(0f) < 1.0f) return;
 
         if (client.targetedEntity != null) {
@@ -83,3 +84,4 @@ public class AutoClicker extends Module {
         }
     }
 }
+
