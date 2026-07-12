@@ -1,6 +1,10 @@
 Cannot remap modifiers because it does not exists in any of the targets [] or their parents.
-/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/mixin/LightmapTextureManagerMixin.java:35: error: cannot find symbol
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/mixin/LightmapTextureManagerMixin.java:35: error: cannot find symbol
+/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/AzeluxClickGui.java:284: error: cannot find symbol
+/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/AzeluxClickGui.java:306: error: cannot find symbol
+/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/AzeluxClickGui.java:316: error: cannot find symbol
+  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/AzeluxClickGui.java:284: error: cannot find symbol
+  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/AzeluxClickGui.java:306: error: cannot find symbol
+  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/AzeluxClickGui.java:316: error: cannot find symbol
 ---FULL TAIL---
 Fetching distribution.
 Downloading https://services.gradle.org/distributions/gradle-9.6.1-bin.zip
@@ -23,14 +27,24 @@ Fabric Loom: 1.14.10
 Cannot remap modifiers because it does not exists in any of the targets [] or their parents.
 
 > Task :compileJava
-/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/mixin/LightmapTextureManagerMixin.java:35: error: cannot find symbol
-    @Shadow(optional = true) private static float getBrightness(float ambientLight, int light) { return 0; }
-            ^
-  symbol:   method optional()
-  location: @interface Shadow
+/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/AzeluxClickGui.java:284: error: cannot find symbol
+        net.minecraft.util.math.BlockPos spawn = client.world.getSpawnPos();
+                                                             ^
+  symbol:   method getSpawnPos()
+  location: variable world of type ClientWorld
+/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/AzeluxClickGui.java:306: error: cannot find symbol
+        players.sort(java.util.Comparator.comparing(e -> e.getProfile().getName()));
+                                                                       ^
+  symbol:   method getName()
+  location: class GameProfile
+/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/AzeluxClickGui.java:316: error: cannot find symbol
+            String pname  = e.getProfile().getName();
+                                          ^
+  symbol:   method getName()
+  location: class GameProfile
 Note: /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/HudRenderer.java uses or overrides a deprecated API.
 Note: Recompile with -Xlint:deprecation for details.
-1 error
+3 errors
 
 > Task :compileJava FAILED
 
@@ -43,12 +57,22 @@ Execution failed for task ':compileJava' (registered by plugin class 'org.gradle
 > Compilation failed; see the compiler output below.
   Note: /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/HudRenderer.java uses or overrides a deprecated API.
   Note: Recompile with -Xlint:deprecation for details.
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/mixin/LightmapTextureManagerMixin.java:35: error: cannot find symbol
-      @Shadow(optional = true) private static float getBrightness(float ambientLight, int light) { return 0; }
-              ^
-    symbol:   method optional()
-    location: @interface Shadow
-  1 error
+  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/AzeluxClickGui.java:284: error: cannot find symbol
+          net.minecraft.util.math.BlockPos spawn = client.world.getSpawnPos();
+                                                               ^
+    symbol:   method getSpawnPos()
+    location: variable world of type ClientWorld
+  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/AzeluxClickGui.java:306: error: cannot find symbol
+          players.sort(java.util.Comparator.comparing(e -> e.getProfile().getName()));
+                                                                         ^
+    symbol:   method getName()
+    location: class GameProfile
+  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/AzeluxClickGui.java:316: error: cannot find symbol
+              String pname  = e.getProfile().getName();
+                                            ^
+    symbol:   method getName()
+    location: class GameProfile
+  3 errors
 
 * Try:
 > Check your code and dependencies to fix the compilation error(s)
@@ -60,5 +84,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/9.6.1/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 1m 2s
+BUILD FAILED in 54s
 1 actionable task: 1 executed
