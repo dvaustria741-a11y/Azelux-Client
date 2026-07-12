@@ -1,6 +1,7 @@
 package com.azeluxclient.module.combat;
 
 import com.azeluxclient.module.Module;
+import com.azeluxclient.module.ModuleManager;
 import com.azeluxclient.setting.BooleanSetting;
 import com.azeluxclient.setting.SliderSetting;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -16,52 +17,32 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
 
-/**
- * KillAura — Normal mode + Legit (Silent Aim) mode.
- *
- * Legit mode attack rules (Vulcan bypass):
- *   1. Smooth rotation toward target — max 8 deg/tick yaw, 7 deg/tick pitch
- *   2. GCD fix — delta snapped to mouse-sensitivity granularity
- *   3. Human jitter — small random drift refreshed every 14-22 ticks
- *   4. Attack ONLY when crosshair is within 5° of target centre
- *   5. No artificial criticals in legit mode (Vulcan checks jump/fall pattern)
- *   6. CPS throttled: 3-8 tick gap between hits (≈ 2.5-6 CPS at 20 TPS)
- *   7. Legit range capped at 2.8 blocks
- */
 public class KillAura extends Module {
 
-    // ── Settings ───────────────────────────────────────────────────────────────
     private final SliderSetting  range   = register(new SliderSetting ("Range",      4.0, 2.0, 6.0));
     private final BooleanSetting players = register(new BooleanSetting("Players",    true));
     private final BooleanSetting mobs    = register(new BooleanSetting("Mobs",       true));
     private final BooleanSetting crits   = register(new BooleanSetting("Criticals",  true));
     private final BooleanSetting legit   = register(new BooleanSetting("Legit Mode", false));
 
-    // ── Silent-aim rotation state ──────────────────────────────────────────────
     private float   serverYaw, serverPitch;
     private float   prevSrvYaw, prevSrvPitch;
     private boolean srvRotReady = false;
 
-    // ── Camera save/restore ────────────────────────────────────────────────────
     private float   savedCamYaw, savedCamPitch;
     private boolean camOverridden = false;
 
-    // ── Timing & jitter ────────────────────────────────────────────────────────
-    private final Random rng     = new Random();
-    private int   skipTicks      = 0;   // ticks to wait before next hit
-    private float jitterYaw      = 0f;
-    private float jitterPitch    = 0f;
-    private int   jitterCooldown = 0;
-
-    // ── Lock-on: must track target for N ticks before first hit ───────────────
-    private int   lockOnTicks    = 0;
-    private static final int LOCK_ON_REQUIRED = 4; // ~200ms of tracking before hitting
+    private final Random rng      = new Random();
+    private int   skipTicks       = 0;
+    private float jitterYaw       = 0f;
+    private float jitterPitch     = 0f;
+    private int   jitterCooldown  = 0;
+    private int   lockOnTicks     = 0;
+    private static final int LOCK_ON_REQUIRED = 4;
 
     public KillAura() {
         super("KillAura", "Automatically attacks nearby entities.", Category.COMBAT);
 
-        // START fires BEFORE vanilla sendMovementPackets() —
-        // we apply serverYaw here so the look packet carries the correct facing.
         ClientTickEvents.START_CLIENT_TICK.register(client -> {
             if (!isEnabled() || !legit.getValue()) return;
             if (client.player == null || !srvRotReady) return;
@@ -92,29 +73,25 @@ public class KillAura extends Module {
             mc.player.setYaw(savedCamYaw);
             mc.player.setPitch(savedCamPitch);
         }
-        srvRotReady   = false;
-        camOverridden = false;
-        skipTicks     = 0;
-        lockOnTicks   = 0;
-        jitterYaw     = 0f;
-        jitterPitch   = 0f;
+        srvRotReady    = false;
+        camOverridden  = false;
+        skipTicks      = 0;
+        lockOnTicks    = 0;
+        jitterYaw      = 0f;
+        jitterPitch    = 0f;
         jitterCooldown = 0;
     }
-
-    // ── Main tick (END — after sendMovementPackets) ────────────────────────────
 
     @Override
     public void onTick(MinecraftClient mc) {
         if (mc.player == null || mc.world == null) return;
 
-        // Restore real camera before rendering
         if (legit.getValue() && camOverridden) {
             mc.player.setYaw(savedCamYaw);
             mc.player.setPitch(savedCamPitch);
             camOverridden = false;
         }
 
-        // Must be fully charged before attacking
         if (mc.player.getAttackCooldownProgress(0f) < 1.0f) return;
 
         double effectiveRange = legit.getValue() ? 2.8 : range.getValue();
@@ -128,21 +105,17 @@ public class KillAura extends Module {
               && !(e instanceof PlayerEntity p && p.isCreative())
         );
 
+        if (targets.isEmpty()) { lockOnTicks = 0; return; }
+
         targets.stream()
             .min(Comparator.comparingDouble(e -> e.squaredDistanceTo(mc.player)))
             .ifPresent(target -> {
                 if (legit.getValue()) handleLegit(mc, target);
                 else                  attack(mc, target);
             });
-
-        // Reset lock-on if no target found this tick
-        if (targets.isEmpty()) lockOnTicks = 0;
     }
 
-    // ── Legit / Silent-Aim handler ─────────────────────────────────────────────
-
     private void handleLegit(MinecraftClient mc, LivingEntity target) {
-        // Seed server rotation from real camera on first use
         if (!srvRotReady) {
             serverYaw    = mc.player.getYaw();
             serverPitch  = mc.player.getPitch();
@@ -151,10 +124,8 @@ public class KillAura extends Module {
             srvRotReady  = true;
         }
 
-        // 1. Ideal rotation toward target centre
         float[] ideal = getRotationsTo(mc.player, target);
 
-        // 2. Refresh jitter every 14-22 ticks
         if (--jitterCooldown <= 0) {
             jitterYaw      = (rng.nextFloat() - 0.5f) * 2.5f;
             jitterPitch    = (rng.nextFloat() - 0.5f) * 1.5f;
@@ -163,11 +134,9 @@ public class KillAura extends Module {
         ideal[0] += jitterYaw;
         ideal[1]  = MathHelper.clamp(ideal[1] + jitterPitch, -90f, 90f);
 
-        // 3. Slow smooth step — max 8 deg yaw / 7 deg pitch per tick (human-like)
         serverYaw   = smoothStep(prevSrvYaw,   ideal[0], 8f);
         serverPitch = smoothStep(prevSrvPitch, ideal[1], 7f);
 
-        // 4. GCD fix
         float gcd    = getGcd(mc);
         float dYaw   = Math.round((serverYaw   - prevSrvYaw)   / gcd) * gcd;
         float dPitch = Math.round((serverPitch - prevSrvPitch) / gcd) * gcd;
@@ -176,35 +145,27 @@ public class KillAura extends Module {
         prevSrvYaw   = serverYaw;
         prevSrvPitch = serverPitch;
 
-        // 5. Update head/body visuals
         mc.player.setHeadYaw(serverYaw);
         mc.player.bodyYaw = serverYaw;
 
-        // 6. Increment lock-on counter (must track before first hit)
         lockOnTicks++;
-
-        // 7. Throttle hits
         if (skipTicks > 0) { skipTicks--; return; }
 
-        // 8. ONLY attack when crosshair is within 5° of target — legit-looking aim
-        float angle = angleFromRot(serverYaw, serverPitch, mc.player, target);
-        if (angle > 5f) return;
-
-        // 9. Require lock-on warm-up before first hit
+        // Only attack when crosshair is within 5 degrees of the target
+        if (angleFromRot(serverYaw, serverPitch, mc.player, target) > 5f) return;
         if (lockOnTicks < LOCK_ON_REQUIRED) return;
 
         attack(mc, target);
-        // 3-8 tick gap between hits (≈ 2.5–6 CPS) — randomised to avoid pattern detection
         skipTicks = 3 + rng.nextInt(6);
     }
 
-    // ── Shared helpers ─────────────────────────────────────────────────────────
-
     private void attack(MinecraftClient mc, LivingEntity target) {
-        // No artificial criticals in legit mode — Vulcan monitors jump/fall state
+        // Criticals only in non-legit mode — Vulcan checks Y-velocity on crits
         if (!legit.getValue() && crits.getValue()) {
-            Criticals crit = net.minecraft.util.registry.Registry.class.cast(null) == null
-                ? null : null; // unused path
+            Criticals crit = ModuleManager.get(Criticals.class);
+            if (crit != null && crit.isEnabled()) {
+                Criticals.sendCritPackets(mc);
+            }
         }
 
         boolean wasSprinting = mc.player.isSprinting();
