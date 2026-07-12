@@ -27,6 +27,7 @@ public class ModuleManager {
         modules.add(new BowAimbot());
         modules.add(new AutoLog());
         modules.add(new Offhand());
+        modules.add(new AutoPvP());
 
         // ── Movement ────────────────────────────────────────────────────────
         modules.add(new Speed());
