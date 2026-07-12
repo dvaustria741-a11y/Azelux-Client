@@ -57,7 +57,7 @@ public class WorldDownloader {
         int     secCount = mc.world.countVerticalSections();
         long    time     = mc.world.getTime();
         long    dayTime  = mc.world.getTimeOfDay();
-        BlockPos spawn   = mc.world.getSpawnPos();
+        BlockPos spawn   = mc.world.getLevelProperties().getSpawnPoint().getPos();
         String  addr     = mc.getCurrentServerEntry() != null
                 ? mc.getCurrentServerEntry().address.replace(":", "-").replace("/", "-")
                 : "singleplayer";
