@@ -1,8 +1,8 @@
 Cannot remap modifiers because it does not exists in any of the targets [] or their parents.
-/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/AimAssist.java:76: error: cannot find symbol
-/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/AimAssist.java:76: error: cannot find symbol
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/AimAssist.java:76: error: cannot find symbol
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/AimAssist.java:76: error: cannot find symbol
+/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/KillAura.java:14: error: cannot find symbol
+/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/KillAura.java:296: error: cannot find symbol
+  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/KillAura.java:14: error: cannot find symbol
+  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/KillAura.java:296: error: cannot find symbol
 ---FULL TAIL---
 Fetching distribution.
 Downloading https://services.gradle.org/distributions/gradle-9.6.1-bin.zip
@@ -25,16 +25,16 @@ Fabric Loom: 1.14.10
 Cannot remap modifiers because it does not exists in any of the targets [] or their parents.
 
 > Task :compileJava
-/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/AimAssist.java:76: error: cannot find symbol
-        Vec3d dir = entity.getPos().subtract(client.player.getPos());
-                          ^
-  symbol:   method getPos()
-  location: variable entity of type LivingEntity
-/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/AimAssist.java:76: error: cannot find symbol
-        Vec3d dir = entity.getPos().subtract(client.player.getPos());
-                                                          ^
-  symbol:   method getPos()
-  location: variable player of type ClientPlayerEntity
+/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/KillAura.java:14: error: cannot find symbol
+import net.minecraft.item.SwordItem;
+                         ^
+  symbol:   class SwordItem
+  location: package net.minecraft.item
+/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/KillAura.java:296: error: cannot find symbol
+        return item instanceof SwordItem || item instanceof AxeItem;
+                               ^
+  symbol:   class SwordItem
+  location: class KillAura
 Note: /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/HudRenderer.java uses or overrides a deprecated API.
 Note: Recompile with -Xlint:deprecation for details.
 2 errors
@@ -50,16 +50,16 @@ Execution failed for task ':compileJava' (registered by plugin class 'org.gradle
 > Compilation failed; see the compiler output below.
   Note: /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/HudRenderer.java uses or overrides a deprecated API.
   Note: Recompile with -Xlint:deprecation for details.
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/AimAssist.java:76: error: cannot find symbol
-          Vec3d dir = entity.getPos().subtract(client.player.getPos());
-                            ^
-    symbol:   method getPos()
-    location: variable entity of type LivingEntity
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/AimAssist.java:76: error: cannot find symbol
-          Vec3d dir = entity.getPos().subtract(client.player.getPos());
-                                                            ^
-    symbol:   method getPos()
-    location: variable player of type ClientPlayerEntity
+  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/KillAura.java:14: error: cannot find symbol
+  import net.minecraft.item.SwordItem;
+                           ^
+    symbol:   class SwordItem
+    location: package net.minecraft.item
+  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/KillAura.java:296: error: cannot find symbol
+          return item instanceof SwordItem || item instanceof AxeItem;
+                                 ^
+    symbol:   class SwordItem
+    location: class KillAura
   2 errors
 
 * Try:
@@ -72,5 +72,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/9.6.1/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 57s
+BUILD FAILED in 58s
 1 actionable task: 1 executed
