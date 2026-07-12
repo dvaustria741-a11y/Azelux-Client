@@ -74,6 +74,7 @@ public class AzeluxClickGui extends Screen {
     private int          dragTrackX = 0, dragTrackW = 0;
     private double       lastDragY  = 0;
     private boolean      dragScroll = false;
+    private int          renderDlBtnY  = 0; // set during renderSettingsTab for click detection
 
     public AzeluxClickGui() {
         super(Text.literal("Azelux Client"));
@@ -334,7 +335,7 @@ public class AzeluxClickGui extends Screen {
         ctx.fill(gx, sy + 10, gx + settW, sy + 11, 0x33FFFFFF);
         sy += 16;
 
-        net.minecraft.util.math.BlockPos spawn = client.world.getSpawnPos();
+        net.minecraft.util.math.BlockPos spawn = client.world.getLevelProperties().getSpawnPoint().getPos();
         net.minecraft.util.math.BlockPos pos   = client.player.getBlockPos();
         long ticks = client.world.getTimeOfDay() % 24000L;
         String timeLabel = ticks < 1000 ? "Sunrise" : ticks < 6000 ? "Morning"
@@ -356,7 +357,7 @@ public class AzeluxClickGui extends Screen {
         // ── Players ──
         java.util.List<net.minecraft.client.network.PlayerListEntry> players =
                 new java.util.ArrayList<>(client.player.networkHandler.getPlayerList());
-        players.sort(java.util.Comparator.comparing(e -> e.getProfile().getName()));
+        players.sort(java.util.Comparator.comparing(e -> e.getProfile().name()));
 
         ctx.drawText(textRenderer, "PLAYERS  (" + players.size() + ")", gx, sy, C_ACCENT, false);
         ctx.fill(gx, sy + 10, gx + settW, sy + 11, 0x33FFFFFF);
@@ -366,7 +367,7 @@ public class AzeluxClickGui extends Screen {
             if (sy + 9 > panY + panH - 6) break;
             int latency   = e.getLatency();
             int pingColor = latency < 80 ? 0xFF55FF55 : latency < 150 ? 0xFFFFFF55 : 0xFFFF5555;
-            String pname  = e.getProfile().getName();
+            String pname  = e.getProfile().name();
             String pms    = latency + " ms";
             ctx.drawText(textRenderer, pname, gx + 4, sy, C_WHITE, false);
             ctx.drawText(textRenderer, pms,
