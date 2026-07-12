@@ -9,9 +9,9 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.AxeItem;
+import net.minecraft.item.ItemStack;
 import net.minecraft.item.ShieldItem;
-import net.minecraft.item.SwordItem;
+import net.minecraft.registry.tag.ItemTags;
 import net.minecraft.util.Hand;
 import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.Box;
@@ -292,8 +292,8 @@ public class KillAura extends Module {
     }
 
     private static boolean isHoldingWeapon(MinecraftClient mc) {
-        var item = mc.player.getMainHandStack().getItem();
-        return item instanceof SwordItem || item instanceof AxeItem;
+        ItemStack stack = mc.player.getMainHandStack();
+        return stack.isIn(ItemTags.SWORDS) || stack.isIn(ItemTags.AXES);
     }
 
     // ── AutoBlock ─────────────────────────────────────────────────────────────
