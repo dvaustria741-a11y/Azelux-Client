@@ -1,21 +1,13 @@
 Cannot remap modifiers because it does not exists in any of the targets [] or their parents.
+/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/util/WorldDownloader.java:60: error: cannot find symbol
 /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/AzeluxClickGui.java:284: error: cannot find symbol
 /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/AzeluxClickGui.java:306: error: cannot find symbol
 /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/AzeluxClickGui.java:316: error: cannot find symbol
+  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/util/WorldDownloader.java:60: error: cannot find symbol
   /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/AzeluxClickGui.java:284: error: cannot find symbol
   /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/AzeluxClickGui.java:306: error: cannot find symbol
   /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/AzeluxClickGui.java:316: error: cannot find symbol
 ---FULL TAIL---
-Fetching distribution.
-Downloading https://services.gradle.org/distributions/gradle-9.6.1-bin.zip
-.............10%.............20%..............30%.............40%..............50%.............60%.............70%..............80%.............90%..............100%
-
-Welcome to Gradle 9.6.1!
-
-Here are the highlights of this release:
- - Improved Configuration Cache hit rates
- - Additional CLI rendering options
- - Important project hierarchy lookup deprecations
 
 For more details see https://docs.gradle.org/9.6.1/release-notes.html
 
@@ -27,6 +19,11 @@ Fabric Loom: 1.14.10
 Cannot remap modifiers because it does not exists in any of the targets [] or their parents.
 
 > Task :compileJava
+/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/util/WorldDownloader.java:60: error: cannot find symbol
+        BlockPos spawn   = mc.world.getSpawnPos();
+                                   ^
+  symbol:   method getSpawnPos()
+  location: variable world of type ClientWorld
 /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/AzeluxClickGui.java:284: error: cannot find symbol
         net.minecraft.util.math.BlockPos spawn = client.world.getSpawnPos();
                                                              ^
@@ -44,7 +41,7 @@ Cannot remap modifiers because it does not exists in any of the targets [] or th
   location: class GameProfile
 Note: /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/HudRenderer.java uses or overrides a deprecated API.
 Note: Recompile with -Xlint:deprecation for details.
-3 errors
+4 errors
 
 > Task :compileJava FAILED
 
@@ -57,6 +54,11 @@ Execution failed for task ':compileJava' (registered by plugin class 'org.gradle
 > Compilation failed; see the compiler output below.
   Note: /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/HudRenderer.java uses or overrides a deprecated API.
   Note: Recompile with -Xlint:deprecation for details.
+  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/util/WorldDownloader.java:60: error: cannot find symbol
+          BlockPos spawn   = mc.world.getSpawnPos();
+                                     ^
+    symbol:   method getSpawnPos()
+    location: variable world of type ClientWorld
   /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/AzeluxClickGui.java:284: error: cannot find symbol
           net.minecraft.util.math.BlockPos spawn = client.world.getSpawnPos();
                                                                ^
@@ -72,7 +74,7 @@ Execution failed for task ':compileJava' (registered by plugin class 'org.gradle
                                             ^
     symbol:   method getName()
     location: class GameProfile
-  3 errors
+  4 errors
 
 * Try:
 > Check your code and dependencies to fix the compilation error(s)
@@ -84,5 +86,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/9.6.1/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 54s
+BUILD FAILED in 55s
 1 actionable task: 1 executed
