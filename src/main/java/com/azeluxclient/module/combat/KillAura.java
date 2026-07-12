@@ -138,6 +138,8 @@ public class KillAura extends Module {
         }
 
         if (mc.player.getAttackCooldownProgress(0f) < 1.0f) return;
+        // Don't attack while eating, drinking, blocking, drawing bow, etc.
+        if (mc.player.isUsingItem()) return;
 
         double effectiveRange = legit.getValue() ? 2.9 : range.getValue();
         Box box = mc.player.getBoundingBox().expand(effectiveRange);
@@ -345,3 +347,4 @@ public class KillAura extends Module {
         return (float) (f * f * f * 1.2);
     }
 }
+
