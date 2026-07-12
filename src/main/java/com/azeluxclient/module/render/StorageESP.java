@@ -1,11 +1,13 @@
 package com.azeluxclient.module.render;
 
 import com.azeluxclient.module.Module;
+import com.azeluxclient.render.EspRenderLayers;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.minecraft.block.*;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.*;
+import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.state.CameraRenderState;
 import net.minecraft.client.render.state.WorldRenderState;
 import net.minecraft.client.util.math.MatrixStack;
@@ -26,6 +28,10 @@ public class StorageESP extends Module {
         WorldRenderEvents.AFTER_ENTITIES.register(this::render);
     }
 
+    // -----------------------------------------------------------------------
+    // Scanning
+    // -----------------------------------------------------------------------
+
     @Override
     public void onTick(MinecraftClient client) {
         if (client.player == null || client.world == null) return;
@@ -34,30 +40,43 @@ public class StorageESP extends Module {
 
         cached.clear();
         BlockPos center = client.player.getBlockPos();
-        int r = 8;
+        int r = 32;
         for (int x = -r; x <= r; x++)
             for (int y = -r; y <= r; y++)
                 for (int z = -r; z <= r; z++) {
                     BlockPos pos = center.add(x, y, z);
                     Block blk = client.world.getBlockState(pos).getBlock();
-                    if (blk instanceof ChestBlock || blk instanceof TrappedChestBlock
-                     || blk instanceof BarrelBlock || blk instanceof EnderChestBlock
-                     || blk instanceof ShulkerBoxBlock)
+                    if (isStorage(blk))
                         cached.add(pos.toImmutable());
                 }
     }
 
+    private static boolean isStorage(Block b) {
+        return b instanceof ChestBlock
+            || b instanceof TrappedChestBlock
+            || b instanceof BarrelBlock
+            || b instanceof EnderChestBlock
+            || b instanceof ShulkerBoxBlock;
+    }
+
+    // -----------------------------------------------------------------------
+    // Rendering (through-walls via EspRenderLayers.ESP_LINES)
+    // -----------------------------------------------------------------------
+
     private void render(WorldRenderContext ctx) {
         if (!isEnabled() || cached.isEmpty()) return;
+
         WorldRenderState ws = ctx.worldState();
         MatrixStack matrices = ctx.matrices();
         VertexConsumerProvider vcp = ctx.consumers();
         if (ws == null || matrices == null || vcp == null) return;
+
         CameraRenderState cam = ws.cameraRenderState;
         if (cam == null || cam.pos == null) return;
         Vec3d camPos = cam.pos;
 
-        VertexConsumer lines = vcp.getBuffer(RenderLayers.LINES);
+        // Use the no-depth-test layer so both boxes and tracers show through walls.
+        VertexConsumer vc = vcp.getBuffer(EspRenderLayers.ESP_LINES);
         MatrixStack.Entry entry = matrices.peek();
         Matrix4f mat = entry.getPositionMatrix();
 
@@ -66,43 +85,63 @@ public class StorageESP extends Module {
             float oy = (float)(pos.getY() - camPos.y);
             float oz = (float)(pos.getZ() - camPos.z);
 
-            drawBox(lines, mat, entry, ox, oy, oz, 1f, 0.84f, 0f, 1f);
+            // Box outline — gold colour, through walls
+            drawBox(vc, mat, entry, ox, oy, oz, 1f, 0.84f, 0f, 0.9f);
 
-            float cx = ox + 0.5f, cy = oy + 0.5f, cz = oz + 0.5f;
-            float len = (float)Math.sqrt(cx*cx + cy*cy + cz*cz);
+            // Tracer — line from camera origin to block centre, through walls
+            float cx = ox + 0.5f;
+            float cy = oy + 0.5f;
+            float cz = oz + 0.5f;
+            float len = (float) Math.sqrt(cx * cx + cy * cy + cz * cz);
             if (len > 0.001f) {
-                float nx = cx/len, ny = cy/len, nz = cz/len;
-                lines.vertex(mat, 0f, 0f, 0f).color(1f,1f,0f,0.8f).normal(entry,nx,ny,nz).lineWidth(1.5f);
-                lines.vertex(mat, cx, cy, cz).color(1f,1f,0f,0.8f).normal(entry,nx,ny,nz).lineWidth(1.5f);
+                float nx = cx / len, ny = cy / len, nz = cz / len;
+                // Bright yellow at camera, fades slightly at the target
+                vc.vertex(mat, 0f, 0f, 0f)
+                  .color(1f, 1f, 0f, 0.9f)
+                  .normal(entry, nx, ny, nz)
+                  .lineWidth(1.5f);
+                vc.vertex(mat, cx, cy, cz)
+                  .color(1f, 1f, 0f, 0.5f)
+                  .normal(entry, nx, ny, nz)
+                  .lineWidth(1.5f);
             }
         }
     }
 
+    // -----------------------------------------------------------------------
+    // Box / line helpers
+    // -----------------------------------------------------------------------
+
     private static void drawBox(VertexConsumer vc, Matrix4f m, MatrixStack.Entry e,
-                                 float ox, float oy, float oz,
-                                 float r, float g, float b, float a) {
-        float x1=ox, y1=oy, z1=oz, x2=ox+1, y2=oy+1, z2=oz+1;
-        line(vc,m,e, x1,y1,z1, x2,y1,z1, r,g,b,a);
-        line(vc,m,e, x2,y1,z1, x2,y1,z2, r,g,b,a);
-        line(vc,m,e, x2,y1,z2, x1,y1,z2, r,g,b,a);
-        line(vc,m,e, x1,y1,z2, x1,y1,z1, r,g,b,a);
-        line(vc,m,e, x1,y2,z1, x2,y2,z1, r,g,b,a);
-        line(vc,m,e, x2,y2,z1, x2,y2,z2, r,g,b,a);
-        line(vc,m,e, x2,y2,z2, x1,y2,z2, r,g,b,a);
-        line(vc,m,e, x1,y2,z2, x1,y2,z1, r,g,b,a);
-        line(vc,m,e, x1,y1,z1, x1,y2,z1, r,g,b,a);
-        line(vc,m,e, x2,y1,z1, x2,y2,z1, r,g,b,a);
-        line(vc,m,e, x2,y1,z2, x2,y2,z2, r,g,b,a);
-        line(vc,m,e, x1,y1,z2, x1,y2,z2, r,g,b,a);
+                                float ox, float oy, float oz,
+                                float r, float g, float b, float a) {
+        float x1 = ox, y1 = oy, z1 = oz;
+        float x2 = ox + 1, y2 = oy + 1, z2 = oz + 1;
+        // Bottom face
+        line(vc, m, e, x1, y1, z1, x2, y1, z1, r, g, b, a);
+        line(vc, m, e, x2, y1, z1, x2, y1, z2, r, g, b, a);
+        line(vc, m, e, x2, y1, z2, x1, y1, z2, r, g, b, a);
+        line(vc, m, e, x1, y1, z2, x1, y1, z1, r, g, b, a);
+        // Top face
+        line(vc, m, e, x1, y2, z1, x2, y2, z1, r, g, b, a);
+        line(vc, m, e, x2, y2, z1, x2, y2, z2, r, g, b, a);
+        line(vc, m, e, x2, y2, z2, x1, y2, z2, r, g, b, a);
+        line(vc, m, e, x1, y2, z2, x1, y2, z1, r, g, b, a);
+        // Verticals
+        line(vc, m, e, x1, y1, z1, x1, y2, z1, r, g, b, a);
+        line(vc, m, e, x2, y1, z1, x2, y2, z1, r, g, b, a);
+        line(vc, m, e, x2, y1, z2, x2, y2, z2, r, g, b, a);
+        line(vc, m, e, x1, y1, z2, x1, y2, z2, r, g, b, a);
     }
 
     private static void line(VertexConsumer vc, Matrix4f m, MatrixStack.Entry e,
-                              float x1,float y1,float z1, float x2,float y2,float z2,
-                              float r,float g,float b,float a) {
-        float dx=x2-x1, dy=y2-y1, dz=z2-z1;
-        float len=(float)Math.sqrt(dx*dx+dy*dy+dz*dz);
-        if(len==0) return;
-        vc.vertex(m,x1,y1,z1).color(r,g,b,a).normal(e,dx/len,dy/len,dz/len).lineWidth(1.5f);
-        vc.vertex(m,x2,y2,z2).color(r,g,b,a).normal(e,dx/len,dy/len,dz/len).lineWidth(1.5f);
+                              float x1, float y1, float z1,
+                              float x2, float y2, float z2,
+                              float r, float g, float b, float a) {
+        float dx = x2 - x1, dy = y2 - y1, dz = z2 - z1;
+        float len = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+        if (len == 0) return;
+        vc.vertex(m, x1, y1, z1).color(r, g, b, a).normal(e, dx / len, dy / len, dz / len).lineWidth(1.5f);
+        vc.vertex(m, x2, y2, z2).color(r, g, b, a).normal(e, dx / len, dy / len, dz / len).lineWidth(1.5f);
     }
 }
