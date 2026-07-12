@@ -509,6 +509,7 @@ public class AzeluxClickGui extends Screen {
             case "esp"                                                  -> "esp";
             case "zoom"                                                 -> "zoom";
             // ── Combat ───────────────────────────────────────────────────
+            case "autopvp", "auto_pvp"                                 -> "killaura";
             case "killaura", "kill_aura"                               -> "killaura";
             case "aimassist", "aim_assist"                             -> "aimassist";
             case "reach"                                               -> "reach";
