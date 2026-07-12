@@ -73,8 +73,10 @@ public class AimAssist extends Module {
 
     /** Returns true when the entity is more than 90 degrees behind the player's look direction. */
     private boolean isBehind(MinecraftClient client, LivingEntity entity) {
-        Vec3d dir = entity.getPos().subtract(client.player.getPos());
-        float targetYaw = (float) Math.toDegrees(Math.atan2(-dir.x, dir.z));
+        // Use getX/getZ instead of getPos() - getPos() does not exist in Yarn 1.21.11
+        double dx = entity.getX() - client.player.getX();
+        double dz = entity.getZ() - client.player.getZ();
+        float targetYaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
         return Math.abs(MathHelper.wrapDegrees(targetYaw - client.player.getYaw())) > 90f;
     }
 
