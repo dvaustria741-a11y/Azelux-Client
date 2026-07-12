@@ -15,28 +15,8 @@ import org.joml.Matrix4f;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.OptionalDouble;
 
 public class StorageESP extends Module {
-
-    /**
-     * A custom render layer identical to RenderLayers.LINES but with
-     * ALWAYS_DEPTH_TEST so boxes and tracers render through walls.
-     */
-    private static final RenderLayer THROUGH_WALL_LINES = RenderLayer.of(
-        "azelux_storage_esp",
-        VertexFormats.LINES,
-        VertexFormat.DrawMode.LINES,
-        256,
-        RenderLayer.MultiPhaseParameters.builder()
-            .program(RenderPhase.LINES_PROGRAM)
-            .lineWidth(new RenderPhase.LineWidth(OptionalDouble.empty()))
-            .layering(RenderPhase.NO_LAYERING)
-            .transparency(RenderPhase.TRANSLUCENT_TRANSPARENCY)
-            .writeMaskState(RenderPhase.COLOR_MASK)
-            .depthTest(RenderPhase.ALWAYS_DEPTH_TEST)
-            .build(false)
-    );
 
     private final List<BlockPos> cached = new ArrayList<>();
     private int scanDelay = 0;
@@ -77,8 +57,7 @@ public class StorageESP extends Module {
         if (cam == null || cam.pos == null) return;
         Vec3d camPos = cam.pos;
 
-        // THROUGH_WALL_LINES uses ALWAYS_DEPTH_TEST → renders behind blocks
-        VertexConsumer lines = vcp.getBuffer(THROUGH_WALL_LINES);
+        VertexConsumer lines = vcp.getBuffer(RenderLayers.LINES);
         MatrixStack.Entry entry = matrices.peek();
         Matrix4f mat = entry.getPositionMatrix();
 
@@ -87,10 +66,8 @@ public class StorageESP extends Module {
             float oy = (float)(pos.getY() - camPos.y);
             float oz = (float)(pos.getZ() - camPos.z);
 
-            // Gold ESP box
             drawBox(lines, mat, entry, ox, oy, oz, 1f, 0.84f, 0f, 1f);
 
-            // Yellow tracer from camera (0,0,0) to block centre
             float cx = ox + 0.5f, cy = oy + 0.5f, cz = oz + 0.5f;
             float len = (float)Math.sqrt(cx*cx + cy*cy + cz*cz);
             if (len > 0.001f) {
@@ -101,7 +78,6 @@ public class StorageESP extends Module {
         }
     }
 
-    // Draws a 1×1×1 outline box with origin at (ox, oy, oz)
     private static void drawBox(VertexConsumer vc, Matrix4f m, MatrixStack.Entry e,
                                  float ox, float oy, float oz,
                                  float r, float g, float b, float a) {
