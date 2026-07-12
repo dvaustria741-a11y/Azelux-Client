@@ -32,7 +32,7 @@ public class LightmapTextureManagerMixin {
 
     @Shadow private boolean dirty;
 
-    @Shadow private static float getBrightness(float ambientLight, int light) { return 0; }
+    @Shadow(optional = true) private static float getBrightness(float ambientLight, int light) { return 0; }
 
     /**
      * Pin gamma to 25.0 (2500%) every tick while Fullbright is on.
