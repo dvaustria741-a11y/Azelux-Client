@@ -231,7 +231,7 @@ public class AzeluxClickGui extends Screen {
         int gx = panX + sideW + PAD + 1, gy = panY + navH + PAD;
         int settW = panW - sideW - PAD * 2 - 1;
         ctx.drawText(textRenderer, "GENERAL", gx, gy, C_WHITE, false);
-        ctx.fill(gx, gy + 12, gx + 200, gy + 13, 0x44FFFFFF);
+        ctx.fill(gx, gy + 12, gx + settW, gy + 13, 0x44FFFFFF);
 
         int bgW = 30, bgH = 12, togW = 20;
         int swX = gx + settW - bgW - 4;
@@ -250,6 +250,82 @@ public class AzeluxClickGui extends Screen {
         sy += 20;
 
         ctx.drawText(textRenderer, "Made by Azelux Team  <3", gx, sy + 8, C_GRAY, false);
+        sy += 30;
+
+        // ── SERVER EXPLORER ──────────────────────────────────────────────────
+        if (client == null || client.world == null || client.player == null) return;
+
+        ctx.fill(gx, sy, gx + settW, sy + 1, 0x33FFFFFF);
+        sy += 8;
+
+        // ── Connection ──
+        ctx.drawText(textRenderer, "CONNECTION", gx, sy, C_ACCENT, false);
+        ctx.fill(gx, sy + 10, gx + settW, sy + 11, 0x33FFFFFF);
+        sy += 16;
+
+        String addr = client.getCurrentServerEntry() != null
+                ? client.getCurrentServerEntry().address : "Singleplayer";
+        int    ping = client.getCurrentServerEntry() != null
+                ? (int) client.getCurrentServerEntry().ping : -1;
+        String dim  = client.world.getRegistryKey().getValue().getPath();
+
+        drawRow(ctx, gx, sy, settW, "Address",   addr,  C_WHITE);  sy += 11;
+        drawRow(ctx, gx, sy, settW, "Ping",
+                ping >= 0 ? ping + " ms" : "N/A",
+                ping < 0 ? C_GRAY : ping < 80 ? 0xFF55FF55 : ping < 150 ? 0xFFFFFF55 : 0xFFFF5555);
+        sy += 11;
+        drawRow(ctx, gx, sy, settW, "Dimension", dim, C_WHITE);     sy += 16;
+
+        // ── World ──
+        ctx.drawText(textRenderer, "WORLD", gx, sy, C_ACCENT, false);
+        ctx.fill(gx, sy + 10, gx + settW, sy + 11, 0x33FFFFFF);
+        sy += 16;
+
+        net.minecraft.util.math.BlockPos spawn = client.world.getSpawnPos();
+        net.minecraft.util.math.BlockPos pos   = client.player.getBlockPos();
+        long ticks = client.world.getTimeOfDay() % 24000L;
+        String timeLabel = ticks < 1000 ? "Sunrise" : ticks < 6000 ? "Morning"
+                : ticks < 12000 ? "Afternoon" : ticks < 13800 ? "Sunset"
+                : ticks < 22000 ? "Night" : "Late Night";
+        boolean raining  = client.world.isRaining();
+        boolean thunder  = client.world.isThundering();
+        String weather   = thunder ? "Thunderstorm" : raining ? "Rain" : "Clear";
+
+        drawRow(ctx, gx, sy, settW, "Spawn",
+                spawn.getX() + "  " + spawn.getY() + "  " + spawn.getZ(), C_WHITE); sy += 11;
+        drawRow(ctx, gx, sy, settW, "Your pos",
+                pos.getX() + "  " + pos.getY() + "  " + pos.getZ(), C_WHITE);       sy += 11;
+        drawRow(ctx, gx, sy, settW, "Time",
+                ticks + "  (" + timeLabel + ")", C_WHITE);                           sy += 11;
+        drawRow(ctx, gx, sy, settW, "Weather", weather,
+                thunder ? 0xFFFF5555 : raining ? 0xFF88AAFF : 0xFF55FF55);          sy += 16;
+
+        // ── Players ──
+        java.util.List<net.minecraft.client.network.PlayerListEntry> players =
+                new java.util.ArrayList<>(client.player.networkHandler.getPlayerList());
+        players.sort(java.util.Comparator.comparing(e -> e.getProfile().getName()));
+
+        ctx.drawText(textRenderer, "PLAYERS  (" + players.size() + ")", gx, sy, C_ACCENT, false);
+        ctx.fill(gx, sy + 10, gx + settW, sy + 11, 0x33FFFFFF);
+        sy += 16;
+
+        for (net.minecraft.client.network.PlayerListEntry e : players) {
+            if (sy + 9 > panY + panH - 6) break;
+            int latency   = e.getLatency();
+            int pingColor = latency < 80 ? 0xFF55FF55 : latency < 150 ? 0xFFFFFF55 : 0xFFFF5555;
+            String pname  = e.getProfile().getName();
+            String pms    = latency + " ms";
+            ctx.drawText(textRenderer, pname, gx + 4, sy, C_WHITE, false);
+            ctx.drawText(textRenderer, pms,
+                    gx + settW - textRenderer.getWidth(pms) - 4, sy, pingColor, false);
+            sy += 11;
+        }
+    }
+
+    private void drawRow(DrawContext ctx, int gx, int sy, int settW, String label, String value, int valColor) {
+        ctx.drawText(textRenderer, label, gx + 4, sy, C_GRAY, false);
+        ctx.drawText(textRenderer, value,
+                gx + settW - textRenderer.getWidth(value) - 4, sy, valColor, false);
     }
 
     // ── Module settings view ──────────────────────────────────────────────────
