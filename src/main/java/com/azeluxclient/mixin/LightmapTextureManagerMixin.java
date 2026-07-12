@@ -11,19 +11,19 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * True fullbright for 1.21.11.
+ * True fullbright for 1.21.11 — two-layered approach for Sodium compatibility.
  *
- * In 1.21.11 the lightmap backend changed from NativeImageBackedTexture to
- * GpuTexture + MappableRingBuffer. Direct pixel overwriting is no longer
- * possible. Instead we redirect the private-static getBrightness(float, int)
- * calls that update() makes for each of the 256 lightmap entries and return
- * 1.0f for all of them when Fullbright is enabled — identical end-result to
- * the old pixel overwrite.
+ * LAYER 1 — gamma hack (Sodium-compatible):
+ *   Every tick we pin gamma to 25.0 (2500 %).  Sodium computes its own
+ *   lightmap from this option, so even though our @Redirect below is a
+ *   no-op when Sodium replaces LightmapTextureManager.update(), Sodium's
+ *   own path will use the inflated gamma and produce a fully bright lightmap.
  *
- * require=0 on the Redirect means: if getBrightness(FI)F is not called from
- * update in this build, the redirect is silently skipped (no crash). The
- * HEAD inject (dirty=true + gamma=1.0) stays active as a near-fullbright
- * fallback so the module is never completely non-functional.
+ * LAYER 2 — getBrightness redirect (vanilla fallback):
+ *   When vanilla's update() is in use, we intercept every getBrightness
+ *   call and return 1.0f so every sky×block combination maps to maximum
+ *   brightness.  require=0 means a missing injection point is a silent
+ *   no-op, not a crash.
  *
  * The user's original gamma is saved/restored by Fullbright.onEnable/onDisable.
  */
@@ -32,10 +32,13 @@ public class LightmapTextureManagerMixin {
 
     @Shadow private boolean dirty;
 
-    /** Shadows the private-static helper so we can call it in the redirect fallback. */
     @Shadow private static float getBrightness(float ambientLight, int light) { return 0; }
 
-    /** Baseline: force lightmap recalc and pin gamma to max every tick. */
+    /**
+     * Pin gamma to 25.0 (2500%) every tick while Fullbright is on.
+     * Sodium reads mc.options.getGamma() for its own lightmap, so this
+     * gives true fullbright regardless of which lightmap backend is active.
+     */
     @Inject(method = "update", at = @At("HEAD"))
     private void onUpdate(float tickProgress, CallbackInfo ci) {
         Fullbright fb = Fullbright.getInstance();
@@ -43,15 +46,17 @@ public class LightmapTextureManagerMixin {
         dirty = true;
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc != null && mc.options != null) {
-            mc.options.getGamma().setValue(1.0);
+            // 25.0 = 2500 % — enough to saturate any lightmap calculation.
+            // Sodium's GammaSliderOption clamps its slider to 100 % but the
+            // underlying SimpleOption accepts arbitrary doubles when set
+            // programmatically, and Sodium's shader path uses the raw value.
+            mc.options.getGamma().setValue(25.0);
         }
     }
 
     /**
-     * True fullbright: intercept every getBrightness(float, int) call inside
-     * update and return 1.0f. This covers all 256 sky×block combinations so
-     * every lightmap entry maps to maximum brightness regardless of light level.
-     * require=0 so a missing injection point is a silent no-op, not a crash.
+     * Vanilla fullbright: make every getBrightness() call return 1.0f.
+     * No-ops silently when Sodium replaces the vanilla update() body.
      */
     @Redirect(
         method = "update",
