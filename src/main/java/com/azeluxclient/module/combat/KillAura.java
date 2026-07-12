@@ -19,18 +19,18 @@ import java.util.Random;
 public class KillAura extends Module {
 
     // Settings
-    private final SliderSetting  range   = register(new SliderSetting ("Range",       4.0, 2.0, 6.0));
-    private final BooleanSetting players = register(new BooleanSetting("Players",     true));
-    private final BooleanSetting mobs    = register(new BooleanSetting("Mobs",        true));
-    private final BooleanSetting crits   = register(new BooleanSetting("Criticals",   true));
-    private final BooleanSetting legit   = register(new BooleanSetting("Legit Mode",  false));
+    private final SliderSetting  range   = register(new SliderSetting ("Range",      4.0, 2.0, 6.0));
+    private final BooleanSetting players = register(new BooleanSetting("Players",    true));
+    private final BooleanSetting mobs    = register(new BooleanSetting("Mobs",       true));
+    private final BooleanSetting crits   = register(new BooleanSetting("Criticals",  true));
+    private final BooleanSetting legit   = register(new BooleanSetting("Legit Mode", false));
 
     // Legit mode state
-    private final Random rng      = new Random();
-    private int   skipTicks       = 0;
-    private float jitterYaw       = 0f;
-    private float jitterPitch     = 0f;
-    private int   jitterCooldown  = 0;
+    private final Random rng     = new Random();
+    private int   skipTicks      = 0;
+    private float jitterYaw      = 0f;
+    private float jitterPitch    = 0f;
+    private int   jitterCooldown = 0;
 
     public KillAura() {
         super("KillAura", "Automatically attacks nearby entities.", Category.COMBAT);
@@ -49,7 +49,6 @@ public class KillAura extends Module {
         if (mc.player == null || mc.world == null) return;
         if (mc.player.getAttackCooldownProgress(0f) < 0.9f) return;
 
-        // Legit mode hard-caps range at 3 blocks
         double effectiveRange = legit.getValue()
             ? Math.min(range.getValue(), 3.0)
             : range.getValue();
@@ -71,12 +70,13 @@ public class KillAura extends Module {
             });
     }
 
-    // Legit mode handler
+    // ── Legit mode ────────────────────────────────────────────────────────────
+
     private void handleLegit(MinecraftClient mc, LivingEntity target) {
         // 1. Ideal rotations toward target centre mass
         float[] ideal = getRotationsTo(mc.player, target);
 
-        // 2. Refresh jitter every 12-18 ticks so aim is not perfectly steady
+        // 2. Refresh jitter every 12-18 ticks
         if (--jitterCooldown <= 0) {
             jitterYaw      = (rng.nextFloat() - 0.5f) * 3.5f;
             jitterPitch    = (rng.nextFloat() - 0.5f) * 2.0f;
@@ -85,34 +85,33 @@ public class KillAura extends Module {
         ideal[0] += jitterYaw;
         ideal[1]  = MathHelper.clamp(ideal[1] + jitterPitch, -90f, 90f);
 
-        // 3. Smooth step toward ideal - max 16 deg yaw, 13 deg pitch per tick
+        // 3. Smooth step — max 16 deg yaw, 13 deg pitch per tick
         float newYaw   = smoothStep(mc.player.getYaw(),   ideal[0], 16f);
         float newPitch = smoothStep(mc.player.getPitch(), ideal[1], 13f);
 
-        // 4. GCD fix - round rotation deltas to match real mouse sensitivity granularity
-        //    so anticheat packet analysis cannot distinguish this from real mouse input
+        // 4. GCD fix — round deltas to mouse-sensitivity granularity
         float gcd    = getGcd(mc);
         float dYaw   = Math.round((newYaw   - mc.player.getYaw())   / gcd) * gcd;
         float dPitch = Math.round((newPitch - mc.player.getPitch()) / gcd) * gcd;
         newYaw   = mc.player.getYaw()   + dYaw;
         newPitch = mc.player.getPitch() + dPitch;
 
-        // 5. Apply rotation - drives both camera (1st person) and body model (3rd person)
+        // 5. Apply — drives camera (1st person) and body model (3rd person)
         mc.player.setYaw(newYaw);
         mc.player.setHeadYaw(newYaw);
         mc.player.setPitch(newPitch);
 
-        // 6. Only attack when we are actually aimed at target (within 35 degrees)
+        // 6. Only attack when aimed within 35 degrees of target
         if (angleToTarget(mc.player, target) > 35f) return;
 
-        // 7. Random 0-2 tick delay between hits to avoid machine-gun detection
+        // 7. Random 0-2 tick gap between hits
         if (skipTicks > 0) { skipTicks--; return; }
-
         attack(mc, target);
         skipTicks = rng.nextInt(3);
     }
 
-    // Shared helpers
+    // ── Shared helpers ────────────────────────────────────────────────────────
+
     private void attack(MinecraftClient mc, LivingEntity target) {
         Criticals crit = ModuleManager.get(Criticals.class);
         if (crit != null && crit.isEnabled() && crits.getValue()) {
@@ -140,15 +139,23 @@ public class KillAura extends Module {
 
     private static float angleToTarget(PlayerEntity player, LivingEntity target) {
         Vec3d look = player.getRotationVec(1f);
-        Vec3d to   = target.getPos()
-                           .add(0, target.getHeight() * 0.5, 0)
-                           .subtract(player.getEyePos())
-                           .normalize();
+        // Use individual coordinate getters instead of getPos() / getEyePos()
+        // to avoid Yarn mapping uncertainty across MC versions
+        Vec3d targetCenter = new Vec3d(
+            target.getX(),
+            target.getY() + target.getHeight() * 0.5,
+            target.getZ()
+        );
+        Vec3d eyePos = new Vec3d(
+            player.getX(),
+            player.getY() + player.getEyeHeight(player.getPose()),
+            player.getZ()
+        );
+        Vec3d to  = targetCenter.subtract(eyePos).normalize();
         double dot = MathHelper.clamp(look.dotProduct(to), -1.0, 1.0);
         return (float) Math.toDegrees(Math.acos(dot));
     }
 
-    // GCD derived from mouse sensitivity - real mouse input is always a multiple of this
     private static float getGcd(MinecraftClient mc) {
         double sens = mc.options.getMouseSensitivity().getValue();
         double f    = sens * 0.6 + 0.2;
