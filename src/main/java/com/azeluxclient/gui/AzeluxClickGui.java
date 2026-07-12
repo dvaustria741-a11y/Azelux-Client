@@ -1,6 +1,7 @@
 package com.azeluxclient.gui;
 
 import com.azeluxclient.module.Module;
+import com.azeluxclient.util.WorldDownloader;
 import com.azeluxclient.module.ModuleManager;
 import com.azeluxclient.setting.BooleanSetting;
 import com.azeluxclient.setting.Setting;
@@ -252,6 +253,58 @@ public class AzeluxClickGui extends Screen {
         ctx.drawText(textRenderer, "Made by Azelux Team  <3", gx, sy + 8, C_GRAY, false);
         sy += 30;
 
+
+        // ── WORLD DOWNLOADER ─────────────────────────────────────────────────
+        ctx.fill(gx, sy, gx + settW, sy + 1, 0x33FFFFFF);
+        sy += 8;
+        ctx.drawText(textRenderer, "WORLD DOWNLOADER", gx, sy, C_ACCENT, false);
+        ctx.fill(gx, sy + 10, gx + settW, sy + 11, 0x33FFFFFF);
+        sy += 16;
+
+        WorldDownloader.State dlState  = WorldDownloader.getState();
+        String               dlStatus = WorldDownloader.getStatus();
+        boolean              dlBusy   = dlState == WorldDownloader.State.RUNNING;
+
+        int dlBtnW = settW - 8;
+        int dlBtnH = 14;
+        int dlBtnX = gx + 4;
+        // btn Y is sy — stored for click detection via renderDlBtnY field
+        renderDlBtnY = sy;
+        int dlBtnColor = dlBusy ? 0xFF1A2A1A
+                       : dlState == WorldDownloader.State.DONE  ? 0xFF1A1A3A
+                       : dlState == WorldDownloader.State.ERROR ? 0xFF3A1A1A
+                       : 0xFF1A1A2A;
+        ctx.fill(dlBtnX, sy, dlBtnX + dlBtnW, sy + dlBtnH, dlBtnColor);
+        ctx.fill(dlBtnX, sy, dlBtnX + dlBtnW, sy + 1, 0x55FFFFFF);
+        ctx.fill(dlBtnX, sy + dlBtnH - 1, dlBtnX + dlBtnW, sy + dlBtnH, 0x33FFFFFF);
+
+        String dlLabel = dlBusy
+                ? "Saving... " + WorldDownloader.getSaved() + " / " + WorldDownloader.getTotal()
+                : dlState == WorldDownloader.State.DONE  ? "\u2713 Done — click to reset"
+                : dlState == WorldDownloader.State.ERROR ? "\u2717 Error — click to reset"
+                : "\u2193  Download World";
+        int dlLabelColor = dlBusy ? 0xFF88FF88
+                         : dlState == WorldDownloader.State.DONE  ? 0xFF8888FF
+                         : dlState == WorldDownloader.State.ERROR ? 0xFFFF8888
+                         : C_WHITE;
+        ctx.drawText(textRenderer, dlLabel,
+                dlBtnX + (dlBtnW - textRenderer.getWidth(dlLabel)) / 2,
+                sy + (dlBtnH - 7) / 2, dlLabelColor, false);
+        sy += dlBtnH + 4;
+
+        // Status / path line
+        ctx.drawText(textRenderer, dlStatus, gx + 4, sy, C_GRAY, false);
+        sy += 12;
+        if (dlState == WorldDownloader.State.DONE && !WorldDownloader.getLastPath().isEmpty()) {
+            String pathLabel = "\u21b3 " + WorldDownloader.getLastPath();
+            // Truncate if wider than panel
+            while (pathLabel.length() > 4 && textRenderer.getWidth(pathLabel) > settW - 8)
+                pathLabel = pathLabel.substring(0, pathLabel.length() - 4) + "...";
+            ctx.drawText(textRenderer, pathLabel, gx + 4, sy, 0xFF5555AA, false);
+            sy += 12;
+        }
+        sy += 4;
+
         // ── SERVER EXPLORER ──────────────────────────────────────────────────
         if (client == null || client.world == null || client.player == null) return;
 
@@ -444,6 +497,21 @@ public class AzeluxClickGui extends Screen {
             }
             if (mx >= swX && mx < swX + bgW && my >= sy2 && my < sy2 + bgH) {
                 showNametagPerson = !showNametagPerson; return true;
+            }
+            // DownloadWorld button (position tracked by renderDlBtnY set during render)
+            int dlBtnX = gx + 4, dlBtnW = settW - 8, dlBtnH = 14;
+            if (renderDlBtnY > 0
+                    && mx >= dlBtnX && mx < dlBtnX + dlBtnW
+                    && my >= renderDlBtnY && my < renderDlBtnY + dlBtnH) {
+                WorldDownloader.State s = WorldDownloader.getState();
+                if (s == WorldDownloader.State.RUNNING) {
+                    // do nothing while saving
+                } else if (s == WorldDownloader.State.DONE || s == WorldDownloader.State.ERROR) {
+                    WorldDownloader.reset();
+                } else {
+                    WorldDownloader.start(client);
+                }
+                return true;
             }
         }
 
