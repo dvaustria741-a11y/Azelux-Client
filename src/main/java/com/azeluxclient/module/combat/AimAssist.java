@@ -44,6 +44,8 @@ public class AimAssist extends Module {
                         && isValidTarget(client, e)
                         && e.squaredDistanceTo(client.player) <= r * r
                         && !isTeammate(client, e)
+                        && !isBehind(client, e)
+                        && !isTooFarBelow(client, e)
         );
 
         targets.stream()
@@ -67,6 +69,22 @@ public class AimAssist extends Module {
         if (myTeam == null) return false;
         AbstractTeam theirTeam = entity.getScoreboardTeam();
         return theirTeam != null && theirTeam.getName().equals(myTeam.getName());
+    }
+
+    /** Returns true when the entity is more than 90 degrees behind the player's look direction. */
+    private boolean isBehind(MinecraftClient client, LivingEntity entity) {
+        Vec3d dir = entity.getPos().subtract(client.player.getPos());
+        float targetYaw = (float) Math.toDegrees(Math.atan2(-dir.x, dir.z));
+        return Math.abs(MathHelper.wrapDegrees(targetYaw - client.player.getYaw())) > 90f;
+    }
+
+    /**
+     * Returns true when the target's centre is more than 0.8 blocks below the player's feet.
+     * Prevents the aim assist from locking onto entities that have fallen into a pit below you.
+     */
+    private boolean isTooFarBelow(MinecraftClient client, LivingEntity entity) {
+        double targetCenterY = entity.getY() + entity.getHeight() * 0.5;
+        return client.player.getY() - targetCenterY > 0.8;
     }
 
     private void aimAt(MinecraftClient client, LivingEntity target) {
