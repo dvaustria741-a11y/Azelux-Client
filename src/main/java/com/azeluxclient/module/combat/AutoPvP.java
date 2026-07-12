@@ -379,7 +379,7 @@ public class AutoPvP extends Module {
         retreatTimer--;
 
         // Move directly away from target
-        Vec3d toTarget  = target.getPos().subtract(mc.player.getPos());
+        Vec3d toTarget  = new Vec3d(target.getX() - mc.player.getX(), target.getY() - mc.player.getY(), target.getZ() - mc.player.getZ());
         double dist     = toTarget.length();
         if (dist < 0.1) return;
 
