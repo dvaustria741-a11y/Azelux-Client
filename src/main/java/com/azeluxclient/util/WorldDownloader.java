@@ -1,3 +1,9 @@
+
+bash
+
+cat /home/claude/WorldDownloader_fixed.java 2>/dev/null || echo "need to create"
+Output
+
 package com.azeluxclient.util;
 
 import net.minecraft.client.MinecraftClient;
