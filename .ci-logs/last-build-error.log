@@ -1,5 +1,6 @@
 Cannot remap modifiers because it does not exists in any of the targets [] or their parents.
-Cannot remap texture because it does not exists in any of the targets [net/minecraft/client/render/LightmapTextureManager] or their parents.
+/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/KillAura.java:143: error: cannot find symbol
+  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/KillAura.java:143: error: cannot find symbol
 ---FULL TAIL---
 Fetching distribution.
 Downloading https://services.gradle.org/distributions/gradle-9.6.1-bin.zip
@@ -22,45 +23,36 @@ Fabric Loom: 1.14.10
 Cannot remap modifiers because it does not exists in any of the targets [] or their parents.
 
 > Task :compileJava
+/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/KillAura.java:143: error: cannot find symbol
+        Vec3d to   = target.getPos()
+                           ^
+  symbol:   method getPos()
+  location: variable target of type LivingEntity
 Note: /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/HudRenderer.java uses or overrides a deprecated API.
 Note: Recompile with -Xlint:deprecation for details.
+1 error
 
-> Task :processResources
-> Task :classes
-> Task :jar
-> Task :processIncludeJars
-> Task :sourcesJar
-> Task :compileTestJava NO-SOURCE
-> Task :processTestResources NO-SOURCE
-> Task :testClasses UP-TO-DATE
-> Task :test NO-SOURCE
-
-> Task :validateAccessWidener FAILED
-Could not find field (LINES_PROGRAM:Lnet/minecraft/client/render/RenderPhase$ShaderProgram;) in class (net/minecraft/client/render/RenderPhase) on line 7
-Could not find field (NO_LAYERING:Lnet/minecraft/client/render/RenderPhase$Layering;) in class (net/minecraft/client/render/RenderPhase) on line 8
-Could not find field (TRANSLUCENT_TRANSPARENCY:Lnet/minecraft/client/render/RenderPhase$Transparency;) in class (net/minecraft/client/render/RenderPhase) on line 9
-Could not find field (COLOR_MASK:Lnet/minecraft/client/render/RenderPhase$WriteMaskState;) in class (net/minecraft/client/render/RenderPhase) on line 10
-Could not find field (ALWAYS_DEPTH_TEST:Lnet/minecraft/client/render/RenderPhase$DepthTest;) in class (net/minecraft/client/render/RenderPhase) on line 11
-access-widener validation failed for azeluxclient.aw
-
-> Task :remapJar
-Cannot remap texture because it does not exists in any of the targets [net/minecraft/client/render/LightmapTextureManager] or their parents.
-
-> Task :remapSourcesJar
+> Task :compileJava FAILED
 
 [Incubating] Problems report is available at: file:///home/runner/work/Azelux-Client/Azelux-Client/build/reports/problems/problems-report.html
 
 FAILURE: Build failed with an exception.
 
 * What went wrong:
-Execution failed for task ':validateAccessWidener' (registered by plugin 'fabric-loom').
-> access-widener validation failed for azeluxclient.aw
+Execution failed for task ':compileJava' (registered by plugin class 'org.gradle.api.plugins.JavaBasePlugin').
+> Compilation failed; see the compiler output below.
+  Note: /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/HudRenderer.java uses or overrides a deprecated API.
+  Note: Recompile with -Xlint:deprecation for details.
+  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/combat/KillAura.java:143: error: cannot find symbol
+          Vec3d to   = target.getPos()
+                             ^
+    symbol:   method getPos()
+    location: variable target of type LivingEntity
+  1 error
 
 * Try:
-> Run with --stacktrace option to get the stack trace.
-> Run with --info or --debug option to get more log output.
+> Check your code and dependencies to fix the compilation error(s)
 > Run with --scan to get full insights from a Build Scan (powered by Develocity).
-> Get more help at https://help.gradle.org.
 
 Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
 
@@ -68,5 +60,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/9.6.1/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 1m 10s
-8 actionable tasks: 8 executed
+BUILD FAILED in 51s
+1 actionable task: 1 executed
