@@ -3,6 +3,8 @@
   "package": "com.azeluxclient.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
+    "CameraFreelookMixin",
+    "EntityFreelookMixin",
     "GameRendererMixin",
     "LightmapTextureManagerMixin",
     "LivingEntityMixin",
