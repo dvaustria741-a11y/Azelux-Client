@@ -343,9 +343,14 @@ public class KillAura extends Module {
     }
 
     // ── Legit / Silent-Aim ────────────────────────────────────────────────────
+    // Per-activation state (declared here to avoid cluttering the class header)
+    private int     legitLockOn   = 0;
+    private int     legitHitDelay = 0;
+    private float   legitOsYaw    = 0f, legitOsPitch = 0f;
+    private boolean legitCorr     = false;
+    private static final int LEGIT_LOCK = 6;
 
     private void handleLegit(MinecraftClient mc, LivingEntity target) {
-        // Seed server rotation from real camera on first activation
         if (!srvRotReady) {
             serverYaw    = savedCamYaw;
             serverPitch  = savedCamPitch;
@@ -354,39 +359,70 @@ public class KillAura extends Module {
             srvRotReady  = true;
         }
 
-        // Ideal rotation
-        float[] ideal = getRotationsTo(mc.player, target);
+        float[] ideal      = getRotationsTo(mc.player, target);
+        float   cleanAngle = angleFromRot(serverYaw, serverPitch, mc.player, target);
 
-        // Random jitter every 12-18 ticks
+        // ── Jitter ±0.35° yaw / ±0.20° pitch, refresh 8-16 ticks ─────────
+        // Old values (±1.75° / ±1.0°) were 3-4× too large for Vulcan
+        // Hitbox A which flags at 0.42°. With old jitter the attack gate
+        // (now 0.40°) was almost never cleared so legit mode barely attacked.
         if (--jitterCooldown <= 0) {
-            jitterYaw      = (rng.nextFloat() - 0.5f) * 3.5f;
-            jitterPitch    = (rng.nextFloat() - 0.5f) * 2.0f;
-            jitterCooldown = 12 + rng.nextInt(7);
+            jitterYaw      = (rng.nextFloat() - 0.5f) * 0.70f;  // ±0.35°
+            jitterPitch    = (rng.nextFloat() - 0.5f) * 0.40f;  // ±0.20°
+            jitterCooldown = 8 + rng.nextInt(9);
         }
-        ideal[0] += jitterYaw;
-        ideal[1]  = MathHelper.clamp(ideal[1] + jitterPitch, -90f, 90f);
 
-        // Smooth step server rotation toward target
-        serverYaw   = smoothStep(prevSrvYaw,   ideal[0], 16f);
-        serverPitch = smoothStep(prevSrvPitch, ideal[1], 13f);
+        // ── Overshoot / correct — proper 2-tick cycle ─────────────────────
+        float osY = 0f, osP = 0f;
+        if (legitCorr) {
+            osY = -legitOsYaw; osP = -legitOsPitch;
+            legitCorr = false;
+        } else if (cleanAngle > 3f && cleanAngle < 20f && rng.nextFloat() < 0.08f) {
+            legitOsYaw = (rng.nextFloat() - 0.5f) * 3.5f;
+            legitOsPitch = (rng.nextFloat() - 0.5f) * 2.0f;
+            osY = legitOsYaw; osP = legitOsPitch;
+            legitCorr = true;
+        }
 
-        // GCD fix
+        float tYaw   = ideal[0] + jitterYaw + osY;
+        float tPitch = MathHelper.clamp(ideal[1] + jitterPitch + osP, -90f, 90f);
+
+        // ── Distance-adaptive step sizes (old: constant 16°/13°) ──────────
+        float sY, sP;
+        if      (cleanAngle > 15f) { sY = 7f  + rng.nextFloat() * 5f;   sP = 5f  + rng.nextFloat() * 4f; }
+        else if (cleanAngle >  5f) { sY = 3f  + rng.nextFloat() * 4f;   sP = 2f  + rng.nextFloat() * 3f; }
+        else                        { sY = 0.8f + rng.nextFloat() * 1.8f; sP = 0.6f + rng.nextFloat() * 1.2f; }
+
+        serverYaw   = smoothStep(prevSrvYaw,   tYaw,   sY);
+        serverPitch = smoothStep(prevSrvPitch, tPitch, sP);
+
+        // ── GCD + 15 % sub-GCD noise ───────────────────────────────────────
         float gcd    = getGcd(mc);
         float dYaw   = Math.round((serverYaw   - prevSrvYaw)   / gcd) * gcd;
         float dPitch = Math.round((serverPitch - prevSrvPitch) / gcd) * gcd;
+        if (rng.nextFloat() < 0.15f) {
+            dYaw   += (rng.nextFloat() - 0.5f) * gcd * 0.35f;
+            dPitch += (rng.nextFloat() - 0.5f) * gcd * 0.35f;
+        }
         serverYaw    = prevSrvYaw   + dYaw;
         serverPitch  = prevSrvPitch + dPitch;
         prevSrvYaw   = serverYaw;
         prevSrvPitch = serverPitch;
 
-        // Visual body+head face target (others see this; you see it in 3rd person)
         mc.player.setHeadYaw(serverYaw);
         mc.player.bodyYaw = serverYaw;
 
-        // Only attack when server rotation is aimed at target (≤ 35°)
-        if (angleFromRot(serverYaw, serverPitch, mc.player, target) > 35f) return;
+        legitLockOn++;
+        if (legitHitDelay > 0) { legitHitDelay--; return; }
+        if (legitLockOn < LEGIT_LOCK) return;
+
+        // ── Attack gate: Vulcan Hitbox A = 0.42°, we use 0.40° ────────────
+        // Old gate was 35° — effectively always attack regardless of aim.
+        float sentAngle = angleFromRot(serverYaw, serverPitch, mc.player, target);
+        if (sentAngle > 0.40f) return;
 
         attack(mc, target);
+        legitHitDelay = 5 + rng.nextInt(6);
     }
 
     // ── Rotation math ─────────────────────────────────────────────────────────
@@ -436,3 +472,4 @@ public class KillAura extends Module {
         return (float) (f * f * f * 1.2);
     }
 }
+
