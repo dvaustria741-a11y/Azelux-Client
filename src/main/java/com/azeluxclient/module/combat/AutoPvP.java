@@ -205,8 +205,8 @@ public class AutoPvP extends Module {
         // ── Health-aware healing ──────────────────────────────────────────────
         float hp = mc.player.getHealth();
         if (eatToHeal.getValue()) {
-            if (!healing && hp <= 16.0f) startHeal();
-            if (healing && hp >= 28.0f)  healing = false;
+            if (!healing && hp <= 12.0f) startHeal();  // 6 hearts
+            if (healing && hp >= 18.0f)  healing = false; // 9 hearts (was 28 — impossible)
         }
         if (healing) {
             tickHeal(mc);
@@ -328,6 +328,11 @@ public class AutoPvP extends Module {
         prevSrvYaw   = serverYaw;
         prevSrvPitch = serverPitch;
 
+        // Keep body/head visually facing target — MC may reset bodyYaw during
+        // player tick if it doesn't match the movement direction.
+        mc.player.setHeadYaw(serverYaw);
+        mc.player.bodyYaw = serverYaw;
+
         lockOnTicks++;
     }
 
@@ -378,13 +383,26 @@ public class AutoPvP extends Module {
         healUseCd    = 0;
     }
 
+    private int splashWarmup = 0;  // ticks spent facing down before throw
+
     private void tickHeal(MinecraftClient mc) {
         if (healUseCd > 0) { healUseCd--; return; }
         int slot = findHealSlot(mc);
         if (slot < 0) { healing = false; return; }
         mc.player.getInventory().selectedSlot = slot;
+
+        ItemStack healItem = mc.player.getInventory().getStack(slot);
+        if (healItem.getItem() instanceof SplashPotionItem) {
+            // Must look straight down so the pot splashes at our feet, not ahead.
+            // Override serverPitch to 85° for 2 warmup ticks so the packet
+            // reaches the server before we throw.
+            serverPitch  = 85f;
+            prevSrvPitch = 85f;
+            if (splashWarmup < 2) { splashWarmup++; return; }
+            splashWarmup = 0;
+        }
         mc.interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
-        healUseCd = 15 + rng.nextInt(10);
+        healUseCd = 18 + rng.nextInt(10);
     }
 
     private void tickRetreat(MinecraftClient mc) {
@@ -478,3 +496,4 @@ public class AutoPvP extends Module {
         prevSrvYaw = 0f; prevSrvPitch = 0f;
     }
 }
+
