@@ -2,6 +2,7 @@ package com.azeluxclient.mixin;
 
 import com.azeluxclient.util.NetworkFirewall;
 import net.minecraft.client.network.ClientCommonNetworkHandler;
+import net.minecraft.network.packet.CustomPayload;
 import net.minecraft.network.packet.s2c.common.CustomPayloadS2CPacket;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -11,23 +12,25 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /**
  * Always-on network firewall.
  *
- * Intercepts every incoming custom payload packet (server → client) at
- * ClientCommonNetworkHandler level — the base handler for both play and
- * config phases in 1.20.5+.
+ * Intercepts every incoming custom payload packet and silently drops
+ * any channel not on the whitelist in NetworkFirewall.ALLOWED_CHANNELS.
  *
- * If the channel is not in NetworkFirewall.ALLOWED_CHANNELS the packet
- * is silently cancelled here before any Fabric listener or vanilla handler
- * can process it. This prevents anticheat and plugin probes from detecting
- * which mod channels are registered on this client.
+ * Uses CustomPayload.Id to extract the channel identifier — the Id record
+ * exposes the Identifier via its id() accessor in 1.21.x Yarn.
  */
 @Mixin(ClientCommonNetworkHandler.class)
 public class NetworkFirewallMixin {
 
     @Inject(method = "onCustomPayload", at = @At("HEAD"), cancellable = true)
     private void firewall_onCustomPayload(CustomPayloadS2CPacket packet, CallbackInfo ci) {
-        String channel = packet.payload().id().id().toString();
+        CustomPayload payload = packet.payload();
+        // CustomPayload.Id<T> is a record whose accessor is id() -> Identifier
+        // We call getId() which is the Yarn name in 1.21.11 for the id method
+        CustomPayload.Id<?> payloadId = payload.getId();
+        String channel = payloadId.id().toString();
+
         if (!NetworkFirewall.isChannelAllowed(channel)) {
-            ci.cancel(); // silently drop
+            ci.cancel();
         }
     }
 }
