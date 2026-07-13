@@ -9,6 +9,7 @@
     "LightmapTextureManagerMixin",
     "LivingEntityMixin",
     "MinecraftClientAccessor",
+    "NetworkFirewallMixin",
     "TitleScreenMixin"
   ],
   "injectors": {
