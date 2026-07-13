@@ -35,6 +35,7 @@ public class ModuleManager {
         modules.add(new NoFall());
         modules.add(new Flight());
         modules.add(new Freecam());
+        modules.add(new Freelook());
         modules.add(new Step());
         modules.add(new SafeWalk());
         modules.add(new NoSlow());
