@@ -68,7 +68,8 @@ public class AzeluxClickGui extends Screen {
     private static boolean hideLoadingScreen  = false;
     private static boolean showNametagPerson  = false;
 
-    private int          scrollY    = 0;
+    private int          scrollY        = 0;
+    private int          settingsScrollY = 0;  // separate scroll for module settings panel
     private Module       optModule  = null;
     private SliderSetting dragging   = null;
     private int          dragTrackX = 0, dragTrackW = 0;
@@ -400,9 +401,10 @@ public class AzeluxClickGui extends Screen {
         ctx.drawText(textRenderer, optModule.getDescription(), gx + 82, gy + 20, C_DIM, false);
         ctx.fill(gx, gy + 30, gx + settW, gy + 31, 0x33FFFFFF);
 
-        int sy = gy + 40;
+        int sy = gy + 40 - settingsScrollY;
         for (Setting<?> s : optModule.getSettings()) {
-            if (sy > panY + panH - 20) break;
+            if (sy > panY + panH) { sy += (s instanceof SliderSetting ? 42 : 20); continue; }
+            if (sy + 44 < gy + 40) { sy += (s instanceof SliderSetting ? 42 : 20); continue; }
             if (s instanceof BooleanSetting bs) {
                 ctx.drawText(textRenderer, bs.getName(), gx + 4, sy + 2, C_WHITE, false);
                 int bgW = 30, bgH = 12, togW = 20;
@@ -461,9 +463,9 @@ public class AzeluxClickGui extends Screen {
             int gx = panX + sideW + PAD + 1, gy = panY + navH + PAD;
             int settW = panW - sideW - PAD * 2 - 1;
             if (mx >= gx && mx < gx + 72 && my >= gy && my < gy + 18) {
-                optModule = null; return true;
+                optModule = null; settingsScrollY = 0; return true;
             }
-            int sy = gy + 40;
+            int sy = gy + 40 - settingsScrollY;
             for (Setting<?> s : optModule.getSettings()) {
                 if (s instanceof BooleanSetting bs) {
                     int bgW = 30, bgH = 12;
@@ -516,6 +518,14 @@ public class AzeluxClickGui extends Screen {
             }
         }
 
+        // Allow drag-scroll in the settings panel area
+        if (optModule != null) {
+            int gx = panX + sideW + PAD + 1, gy2 = panY + navH + PAD;
+            int settW2 = panW - sideW - PAD * 2 - 1;
+            if (mx >= gx && mx < gx + settW2 && my >= gy2 + 40 && my < panY + panH) {
+                lastDragY = click.y(); dragScroll = true; return true;
+            }
+        }
         if (activeTab == 0) {
             List<Module> mods = ModuleManager.getModules();
             int gx = panX + sideW + 1, gy = panY + navH + 1;
@@ -553,7 +563,11 @@ public class AzeluxClickGui extends Screen {
             return true;
         }
         if (dragScroll) {
-            scrollY = Math.max(0, scrollY - (int)(click.y() - lastDragY));
+            if (optModule != null) {
+                settingsScrollY = Math.max(0, settingsScrollY - (int)(click.y() - lastDragY));
+            } else {
+                scrollY = Math.max(0, scrollY - (int)(click.y() - lastDragY));
+            }
             lastDragY = click.y();
             return true;
         }
@@ -568,7 +582,11 @@ public class AzeluxClickGui extends Screen {
 
     @Override
     public boolean mouseScrolled(double mx, double my, double hx, double vy) {
-        scrollY = Math.max(0, scrollY - (int)(vy * 14));
+        if (optModule != null) {
+            settingsScrollY = Math.max(0, settingsScrollY - (int)(vy * 14));
+        } else {
+            scrollY = Math.max(0, scrollY - (int)(vy * 14));
+        }
         return true;
     }
 
@@ -700,3 +718,4 @@ public class AzeluxClickGui extends Screen {
         return key == null ? null : iconTex(key);
     }
 }
+
