@@ -26,6 +26,9 @@ public class AimAssist extends Module {
     // When OFF: snaps instantly to target (useful for testing aim reach/hitbox).
     // When ON : smoothly interpolates at the speed set by Smooth slider.
     private final BooleanSetting interpolation  = register(new BooleanSetting("Interpolation",   true));
+    // Target must be within this angle of where you're already looking.
+    // Beyond this cone AimAssist stops pulling so you can look away freely.
+    private final SliderSetting  fov            = register(new SliderSetting ("FOV",             60.0, 5.0, 180.0));
 
     public AimAssist() {
         super("AimAssist", "Smoothly aims at the nearest entity.", Category.COMBAT);
@@ -53,7 +56,21 @@ public class AimAssist extends Module {
 
         targets.stream()
                 .min(Comparator.comparingDouble(e -> e.squaredDistanceTo(client.player)))
-                .ifPresent(t -> aimAt(client, t));
+                .ifPresent(t -> {
+                    // FOV gate: only assist if target is within the configured cone.
+                    // When the player deliberately looks away (> FOV/2 degrees off)
+                    // AimAssist pauses so they can retreat, eat, or look around freely.
+                    double dx2 = t.getX() - client.player.getX();
+                    double dy2 = t.getY() + t.getHeight() * 0.5 - client.player.getEyeY();
+                    double dz2 = t.getZ() - client.player.getZ();
+                    double hd2 = Math.sqrt(dx2 * dx2 + dz2 * dz2);
+                    float tYaw2   = (float) Math.toDegrees(Math.atan2(-dx2, dz2));
+                    float tPitch2 = (float) Math.toDegrees(-Math.atan2(dy2, hd2));
+                    float dYaw2   = Math.abs(MathHelper.wrapDegrees(tYaw2   - client.player.getYaw()));
+                    float dPitch2 = Math.abs(MathHelper.wrapDegrees(tPitch2 - client.player.getPitch()));
+                    float halfFov = (float)(fov.getValue() / 2.0);
+                    if (dYaw2 <= halfFov && dPitch2 <= halfFov) aimAt(client, t);
+                });
     }
 
     private boolean isValidTarget(MinecraftClient client, LivingEntity e) {
@@ -120,4 +137,5 @@ public class AimAssist extends Module {
         return from + MathHelper.wrapDegrees(to - from) * t;
     }
 }
+
 
