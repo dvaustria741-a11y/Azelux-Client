@@ -1,9 +1,10 @@
 package com.azeluxclient.mixin;
 
 import com.azeluxclient.module.movement.Freelook;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.option.Perspective;
 import net.minecraft.client.render.Camera;
-import org.joml.Quaternionf;
-import org.joml.Vector3f;
+import net.minecraft.entity.Entity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -11,51 +12,63 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Overrides the camera direction when Freelook is active.
+ * Makes the camera orbit around the player using freelook angles.
  *
- * Root cause of the "camera stuck" bug:
- *   Camera.update() computes `this.rotation` (the quaternion that actually
- *   steers the rendered view) from entity yaw/pitch DURING execution.
- *   The old mixin injected at RETURN and wrote `this.yaw` and `this.pitch`,
- *   but by that point the rotation quaternion was already computed from the
- *   entity's values — so the visual never changed.
+ * ── Why HEAD + RETURN, not RETURN only ──────────────────────────────────────
+ * Camera.update() does two things:
+ *   1. Computes the CAMERA POSITION (third-person offset behind the player).
+ *   2. Computes the CAMERA LOOK DIRECTION (rotation quaternion).
+ * Both steps read `entity.getYaw()` / `entity.getPitch()`.
+ *
+ * The old approach (RETURN inject, overriding `this.yaw/pitch` and manually
+ * recomputing the quaternion) only fixed the LOOK DIRECTION. The camera
+ * position was already baked from the entity's real yaw — so the camera
+ * stayed behind the entity facing but just rotated the view, not actually
+ * orbiting.
  *
  * Fix:
- *   After overriding yaw/pitch at RETURN we ALSO recompute `this.rotation`
- *   using the same formula Camera uses internally:
- *     rotation = identity · rotateY(-yaw_rad) · rotateX(pitch_rad)
- *   and refresh the three camera plane vectors that depend on it.
+ *   HEAD  → override entity yaw/pitch with freelook values BEFORE update().
+ *           Camera.update() reads these and computes BOTH position and
+ *           rotation correctly for the freelook angles.
+ *   RETURN → restore entity yaw/pitch so the player's actual facing is
+ *            unaffected (important for AutoPvP's silent-aim).
+ *
+ * Only active in third-person views — freelook in first-person would just
+ * be a broken camera that doesn't orbit.
  */
 @Mixin(Camera.class)
 public class CameraFreelookMixin {
 
-    @Shadow private float yaw;
-    @Shadow private float pitch;
-    // The rotation quaternion is what the renderer actually reads for the view matrix.
-    @Shadow private Quaternionf rotation;            // private final — @Shadow gives access
-    @Shadow private Vector3f horizontalPlane;        // forward direction
-    @Shadow private Vector3f verticalPlane;          // up direction
-    @Shadow private Vector3f diagonalPlane;          // normalized(forward + up)
+    @Shadow private Entity focusedEntity;
+
+    @Inject(method = "update", at = @At("HEAD"))
+    private void onUpdateHead(CallbackInfo ci) {
+        if (!Freelook.isActive()) return;
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc == null) return;
+        // Third-person only — freelook doesn't make sense in first-person
+        if (mc.options.getPerspective() == Perspective.FIRST_PERSON) return;
+        if (focusedEntity == null) return;
+
+        // Save real entity angles and replace with freelook angles.
+        // Camera.update() will now position and orient the camera using
+        // our freelook yaw/pitch, giving a proper orbital third-person view.
+        Freelook.savedEntityYaw   = focusedEntity.getYaw();
+        Freelook.savedEntityPitch = focusedEntity.getPitch();
+        focusedEntity.setYaw(Freelook.lookYaw);
+        focusedEntity.setPitch(Freelook.lookPitch);
+        Freelook.entityOverrideActive = true;
+    }
 
     @Inject(method = "update", at = @At("RETURN"))
-    private void onUpdate(CallbackInfo ci) {
-        if (!Freelook.isActive()) return;
-
-        // 1. Override the stored yaw/pitch values
-        this.yaw   = Freelook.lookYaw;
-        this.pitch = Freelook.lookPitch;
-
-        // 2. Recompute the rotation quaternion from the new yaw/pitch.
-        //    MC convention: yaw=0 → south (+Z), positive pitch → looking down.
-        //    rotateY(-yaw_rad) sweeps the forward vector around the Y axis.
-        //    rotateX( pitch_rad) tilts it up/down.
-        this.rotation.identity()
-            .rotateY((float) Math.toRadians(-this.yaw))
-            .rotateX((float) Math.toRadians(this.pitch));
-
-        // 3. Update the three camera plane vectors that other systems read.
-        this.horizontalPlane.set(0f, 0f, 1f).rotate(this.rotation);
-        this.verticalPlane.set(0f, 1f, 0f).rotate(this.rotation);
-        this.diagonalPlane.set(this.horizontalPlane).add(this.verticalPlane).normalize();
+    private void onUpdateReturn(CallbackInfo ci) {
+        if (!Freelook.entityOverrideActive) return;
+        // Restore so the player entity keeps its real yaw/pitch for movement,
+        // silent-aim packet routing, and all other game logic.
+        if (focusedEntity != null) {
+            focusedEntity.setYaw(Freelook.savedEntityYaw);
+            focusedEntity.setPitch(Freelook.savedEntityPitch);
+        }
+        Freelook.entityOverrideActive = false;
     }
 }
