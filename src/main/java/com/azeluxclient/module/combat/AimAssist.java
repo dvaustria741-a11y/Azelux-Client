@@ -22,7 +22,10 @@ public class AimAssist extends Module {
     private final BooleanSetting players   = register(new BooleanSetting("Players",          true));
     private final BooleanSetting mobs      = register(new BooleanSetting("Mobs",             true));
     private final BooleanSetting onAttack  = register(new BooleanSetting("Only On Attack",   true));
-    private final BooleanSetting teamCheck = register(new BooleanSetting("Team Check",       false));
+    private final BooleanSetting teamCheck      = register(new BooleanSetting("Team Check",       false));
+    // When OFF: snaps instantly to target (useful for testing aim reach/hitbox).
+    // When ON : smoothly interpolates at the speed set by Smooth slider.
+    private final BooleanSetting interpolation  = register(new BooleanSetting("Interpolation",   true));
 
     public AimAssist() {
         super("AimAssist", "Smoothly aims at the nearest entity.", Category.COMBAT);
@@ -100,13 +103,21 @@ public class AimAssist extends Module {
 
         float curYaw   = client.player.getYaw();
         float curPitch = client.player.getPitch();
-        float speed    = (float) (smooth.getValue() / 10.0);
 
-        client.player.setYaw  (lerpAngle(curYaw,   targetYaw,   speed));
-        client.player.setPitch(MathHelper.clamp(lerpAngle(curPitch, targetPitch, speed), -90f, 90f));
+        if (interpolation.getValue()) {
+            // Smooth interpolation toward target
+            float speed = (float) (smooth.getValue() / 10.0);
+            client.player.setYaw  (lerpAngle(curYaw,   targetYaw,   speed));
+            client.player.setPitch(MathHelper.clamp(lerpAngle(curPitch, targetPitch, speed), -90f, 90f));
+        } else {
+            // Snap directly — useful for testing hitbox / aim reach
+            client.player.setYaw  (targetYaw);
+            client.player.setPitch(MathHelper.clamp(targetPitch, -90f, 90f));
+        }
     }
 
     private static float lerpAngle(float from, float to, float t) {
         return from + MathHelper.wrapDegrees(to - from) * t;
     }
 }
+
