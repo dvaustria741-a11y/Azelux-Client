@@ -4,6 +4,7 @@ import com.azeluxclient.gui.AzeluxClickGui;
 import com.azeluxclient.gui.HudRenderer;
 import com.azeluxclient.module.ModuleManager;
 import com.azeluxclient.module.misc.AutoReconnect;
+import com.azeluxclient.util.NetworkFirewall;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -34,11 +35,13 @@ public class AzeluxClient implements ClientModInitializer {
                 new KeyBinding.Category(Identifier.of("azeluxclient", "category"))
         ));
 
+        // Always-on anti-detection layer — must init before modules
+        NetworkFirewall.init();
+
         ModuleManager.init();
         HudRenderer.register();
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            // AutoReconnect runs even when player is null (disconnect screen)
             AutoReconnect.globalTick(client);
 
             if (openGuiKey.wasPressed() && client.currentScreen == null) {
@@ -49,7 +52,7 @@ public class AzeluxClient implements ClientModInitializer {
             }
         });
 
-        LOGGER.info("[Azelux Client] v{} loaded — {} modules ready.",
+        LOGGER.info("[Azelux Client] v{} loaded — {} modules ready. NetworkFirewall: ON",
                 VERSION, ModuleManager.getModules().size());
     }
 
