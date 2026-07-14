@@ -138,9 +138,12 @@ public class AimAssist extends Module {
         // current sensitivity. setYaw/setPitch bypassed this and produced
         // sub-GCD precision: a pattern Vulcan's Aim checks flag immediately.
         float gcd = getGcd(client);
-        dYaw   = Math.round(dYaw   / gcd) * gcd;
-        dPitch = Math.round(dPitch / gcd) * gcd;
-        if (Math.abs(dYaw) < 0.001f && Math.abs(dPitch) < 0.001f) return;
+        // Dead-zone: only round to the nearest GCD step when delta >= gcd/2.
+        // Without this, sub-GCD deltas round to a full step → overshoot →
+        // next tick rounds back → oscillation (the up/down drift bug).
+        dYaw   = (Math.abs(dYaw)   >= gcd * 0.5f) ? Math.round(dYaw   / gcd) * gcd : 0f;
+        dPitch = (Math.abs(dPitch) >= gcd * 0.5f) ? Math.round(dPitch / gcd) * gcd : 0f;
+        if (dYaw == 0f && dPitch == 0f) return;
 
         // Apply via changeLookDirection — the identical code path used by
         // Mouse.updateMouse() for real hardware input. changeLookDirection
