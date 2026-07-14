@@ -139,15 +139,18 @@ public class AutoPvP extends Module {
                 client.player.bodyYaw = serverYaw;
             }
 
-            // 2. Keyboard input — applied HERE so KeyboardInput.tick() picks them
-            //    up this same tick and routes them through the real movement pipeline.
-            //    When disabled, all keys are released (false) so nothing sticks.
-            client.options.forwardKey.setPressed(isEnabled() && kForward);
-            client.options.backKey.setPressed(isEnabled()    && kBack);
-            client.options.leftKey.setPressed(isEnabled()    && kLeft);
-            client.options.rightKey.setPressed(isEnabled()   && kRight);
-            client.options.sprintKey.setPressed(isEnabled()  && kSprint);
-            client.options.jumpKey.setPressed(isEnabled()    && kJump);
+            // 2. Keyboard input — only override keys when AutoPvP is active.
+            //    When disabled we must NOT call setPressed at all — calling
+            //    setPressed(false) every tick overrides real user key presses
+            //    and makes WASD stop working even with all modules off.
+            if (isEnabled()) {
+                client.options.forwardKey.setPressed(kForward);
+                client.options.backKey.setPressed(kBack);
+                client.options.leftKey.setPressed(kLeft);
+                client.options.rightKey.setPressed(kRight);
+                client.options.sprintKey.setPressed(kSprint);
+                client.options.jumpKey.setPressed(kJump);
+            }
         });
     }
 
