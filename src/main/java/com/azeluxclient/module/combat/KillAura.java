@@ -23,6 +23,21 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
 
+/**
+ * KillAura — ported from LiquidBounce with Azelux-Client framework.
+ *
+ * Features ported from LiquidBounce:
+ *  - CPS Clicker    : randomised Min/Max CPS with tick-based scheduling
+ *  - Scan Range     : wide acquisition radius; attack only within Range
+ *  - Wall Range     : separate range for hitting through blocks
+ *  - Raycast        : NONE / ENEMY / ALL crosshair-entity selection
+ *  - AutoBlock      : hold off-hand shield between hits
+ *  - KeepSprint     : restore sprint state after attack
+ *  - TeamCheck      : never hit scoreboard-teammates
+ *  - WeaponOnly     : require sword or axe in main hand
+ *  - Legit Mode     : silent aim — START_CLIENT_TICK rotation trick,
+ *                     camera never moves, body faces target, GCD fix
+ */
 public class KillAura extends Module {
 
     // ── Targeting ─────────────────────────────────────────────────────────────
@@ -36,9 +51,9 @@ public class KillAura extends Module {
     private final EnumSetting<RaycastMode> raycast =
         register(new EnumSetting<>("Raycast", RaycastMode.ENEMY));
 
-    // ── CPS — default 4-6 (human range, won't trigger Vulcan timing checks) ──
-    private final SliderSetting minCPS = register(new SliderSetting("Min CPS",  4.0, 1.0, 20.0));
-    private final SliderSetting maxCPS = register(new SliderSetting("Max CPS",  6.0, 1.0, 20.0));
+    // ── CPS ───────────────────────────────────────────────────────────────────
+    private final SliderSetting minCPS = register(new SliderSetting("Min CPS",  8.0, 1.0, 20.0));
+    private final SliderSetting maxCPS = register(new SliderSetting("Max CPS", 12.0, 1.0, 20.0));
 
     // ── Combat ────────────────────────────────────────────────────────────────
     private final BooleanSetting crits      = register(new BooleanSetting("Criticals",   true));
@@ -46,35 +61,50 @@ public class KillAura extends Module {
     private final BooleanSetting keepSprint = register(new BooleanSetting("Keep Sprint", true));
     private final BooleanSetting legit      = register(new BooleanSetting("Legit Mode",  false));
 
+    // ── Raycast enum (mirrors LiquidBounce RaycastMode) ──────────────────────
     public enum RaycastMode { NONE, ENEMY, ALL }
 
-    private int     clickTimer    = 0;
-    private int     nextClickTick = 1;
-    private boolean isBlocking    = false;
+    // ── CPS state ─────────────────────────────────────────────────────────────
+    private int clickTimer    = 0;
+    private int nextClickTick = 1;
 
-    // ── Legit (silent-aim) state ──────────────────────────────────────────────
+    // ── AutoBlock state ───────────────────────────────────────────────────────
+    private boolean isBlocking = false;
+
+    // ── Silent-aim (Legit Mode) state ─────────────────────────────────────────
     private float   serverYaw, serverPitch;
     private float   prevSrvYaw, prevSrvPitch;
-    private boolean srvRotReady   = false;
+    private boolean srvRotReady = false;
+
     private float   savedCamYaw, savedCamPitch;
     private boolean camOverridden = false;
-    private int     lockOnTicks   = 0;
 
-    private final Random rng      = new Random();
-    private float jitterYaw       = 0f;
-    private float jitterPitch     = 0f;
-    private int   jitterCooldown  = 0;
-    private int   idleTicks       = 0;
+    private final Random rng     = new Random();
+    private float jitterYaw      = 0f;
+    private float jitterPitch    = 0f;
+    private int   jitterCooldown = 0;
+
+    // ─────────────────────────────────────────────────────────────────────────
 
     public KillAura() {
         super("KillAura", "Automatically attacks nearby entities.", Category.COMBAT);
 
+        /*
+         * START_CLIENT_TICK fires BEFORE vanilla sendMovementPackets().
+         * By setting the entity yaw/pitch here, the look/position packet
+         * the game sends this tick carries the target-facing direction.
+         * We save the real camera first and restore it in onTick (END tick,
+         * after packets but before rendering) so the player's first-person
+         * view never visually moves.
+         */
         ClientTickEvents.START_CLIENT_TICK.register(client -> {
             if (!isEnabled() || !legit.getValue()) return;
             if (client.player == null || !srvRotReady) return;
+
             savedCamYaw   = client.player.getYaw();
             savedCamPitch = client.player.getPitch();
             camOverridden = true;
+
             client.player.setYaw(serverYaw);
             client.player.setPitch(serverPitch);
             client.player.setHeadYaw(serverYaw);
@@ -82,13 +112,14 @@ public class KillAura extends Module {
         });
     }
 
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
+
     @Override
     public void onEnable() {
         clickTimer    = 0;
         srvRotReady   = false;
         camOverridden = false;
         isBlocking    = false;
-        lockOnTicks   = 0;
         scheduleNextClick();
     }
 
@@ -105,65 +136,77 @@ public class KillAura extends Module {
         srvRotReady   = false;
         camOverridden = false;
         isBlocking    = false;
-        lockOnTicks   = 0;
     }
+
+    // ── Main tick (END — after sendMovementPackets, before rendering) ─────────
 
     @Override
     public void onTick(MinecraftClient mc) {
         if (mc.player == null || mc.world == null) return;
 
-        // Restore real camera after packets sent
+        // Step 1: Restore real camera before the frame renders
         if (legit.getValue() && camOverridden) {
             mc.player.setYaw(savedCamYaw);
             mc.player.setPitch(savedCamPitch);
             camOverridden = false;
         }
 
-        // ── MUST be fully charged — this was missing, causing rapid attacks ──
-        if (mc.player.getAttackCooldownProgress(0f) < 1.0f) {
-            if (autoBlock.getValue()) startBlocking(mc);
+        // Step 2: WeaponOnly gate
+        if (weaponOnly.getValue() && !isHoldingWeapon(mc)) {
+            stopBlockingIfNeeded(mc);
             return;
         }
 
-        if (weaponOnly.getValue() && !isHoldingWeapon(mc)) {
-            stopBlockingIfNeeded(mc); return;
-        }
-
+        // Step 3: Scan for targets in the wider scan radius
         Box scanBox = mc.player.getBoundingBox().expand(scanRange.getValue());
         List<LivingEntity> candidates = mc.world.getEntitiesByClass(
-            LivingEntity.class, scanBox, e -> isValidTarget(mc, e));
+            LivingEntity.class, scanBox, e -> isValidTarget(mc, e)
+        );
 
         LivingEntity target = candidates.stream()
             .min(Comparator.comparingDouble(e -> e.squaredDistanceTo(mc.player)))
             .orElse(null);
 
-        if (target == null) { lockOnTicks = 0; stopBlockingIfNeeded(mc); return; }
+        if (target == null) {
+            stopBlockingIfNeeded(mc);
+            return;
+        }
 
-        double dist        = Math.sqrt(target.squaredDistanceTo(mc.player));
-        boolean inRange    = dist <= range.getValue() && hasLineOfSight(mc, target);
+        // Step 4: Check if target is within attackable range
+        double dist   = Math.sqrt(target.squaredDistanceTo(mc.player));
+        boolean inRange     = dist <= range.getValue() && hasLineOfSight(mc, target);
         boolean inWallRange = wallRange.getValue() > 0 && dist <= wallRange.getValue();
 
         if (!inRange && !inWallRange) {
-            if (autoBlock.getValue()) startBlocking(mc); return;
+            // In scan range but not yet close enough — hold shield
+            if (autoBlock.getValue()) startBlocking(mc);
+            return;
         }
 
+        // Step 5: Raycast crosshair entity selection
         if (raycast.getValue() != RaycastMode.NONE) {
-            LivingEntity ch = findCrosshairTarget(mc);
-            if (ch != null && isValidTarget(mc, ch)) target = ch;
+            LivingEntity crosshairTarget = findCrosshairTarget(mc);
+            if (crosshairTarget != null && isValidTarget(mc, crosshairTarget)) {
+                target = crosshairTarget;
+            }
         }
 
+        // Step 6: CPS tick gate
         clickTimer++;
         if (clickTimer < nextClickTick) {
-            if (autoBlock.getValue()) startBlocking(mc); return;
+            if (autoBlock.getValue()) startBlocking(mc);
+            return;
         }
         scheduleNextClick();
 
+        // Step 7: Attack
         stopBlockingIfNeeded(mc);
         if (legit.getValue()) handleLegit(mc, target);
         else                  attack(mc, target);
     }
 
     // ── CPS scheduling ────────────────────────────────────────────────────────
+
     private void scheduleNextClick() {
         clickTimer = 0;
         double lo  = Math.min(minCPS.getValue(), maxCPS.getValue());
@@ -172,7 +215,141 @@ public class KillAura extends Module {
         nextClickTick = Math.max(1, (int) Math.round(20.0 / cps));
     }
 
+    // ── Range & LoS helpers ───────────────────────────────────────────────────
+
+    private boolean hasLineOfSight(MinecraftClient mc, LivingEntity target) {
+        Vec3d eye = new Vec3d(
+            mc.player.getX(),
+            mc.player.getY() + mc.player.getEyeHeight(mc.player.getPose()),
+            mc.player.getZ()
+        );
+        Vec3d tgt = new Vec3d(
+            target.getX(),
+            target.getY() + target.getHeight() * 0.5,
+            target.getZ()
+        );
+        HitResult hit = mc.world.raycast(new RaycastContext(
+            eye, tgt,
+            RaycastContext.ShapeType.COLLIDER,
+            RaycastContext.FluidHandling.NONE,
+            mc.player
+        ));
+        return hit.getType() == HitResult.Type.MISS;
+    }
+
+    /**
+     * Finds the entity in the player's current crosshair within attack range.
+     * Used for ENEMY (players only) and ALL raycast modes.
+     */
+    private LivingEntity findCrosshairTarget(MinecraftClient mc) {
+        Vec3d eye  = new Vec3d(
+            mc.player.getX(),
+            mc.player.getY() + mc.player.getEyeHeight(mc.player.getPose()),
+            mc.player.getZ()
+        );
+        Vec3d look = mc.player.getRotationVec(1f);
+        Vec3d end  = eye.add(look.multiply(range.getValue()));
+
+        LivingEntity best   = null;
+        double       bestDist = Double.MAX_VALUE;
+
+        for (LivingEntity e : mc.world.getEntitiesByClass(
+                LivingEntity.class,
+                mc.player.getBoundingBox().expand(range.getValue()),
+                en -> isValidTarget(mc, en))) {
+
+            if (raycast.getValue() == RaycastMode.ENEMY && !(e instanceof PlayerEntity)) continue;
+
+            Box expanded = e.getBoundingBox().expand(0.3);
+            var hit = expanded.raycast(eye, end);
+            if (hit.isPresent()) {
+                double d = eye.squaredDistanceTo(hit.get());
+                if (d < bestDist) { bestDist = d; best = e; }
+            }
+        }
+        return best;
+    }
+
+    // ── Target validation ─────────────────────────────────────────────────────
+
+    private boolean isValidTarget(MinecraftClient mc, LivingEntity e) {
+        if (e == mc.player) return false;
+        if (!e.isAlive()) return false;
+        if (e instanceof PlayerEntity p) {
+            if (!players.getValue()) return false;
+            if (p.isCreative() || p.isSpectator()) return false;
+            if (teamCheck.getValue() && isTeammate(mc.player, p)) return false;
+        } else {
+            if (!mobs.getValue()) return false;
+        }
+        return true;
+    }
+
+    private static boolean isTeammate(PlayerEntity me, PlayerEntity other) {
+        var myTeam    = me.getScoreboardTeam();
+        var theirTeam = other.getScoreboardTeam();
+        return myTeam != null && myTeam == theirTeam;
+    }
+
+    private static boolean isHoldingWeapon(MinecraftClient mc) {
+        ItemStack stack = mc.player.getMainHandStack();
+        return stack.isIn(ItemTags.SWORDS) || stack.isIn(ItemTags.AXES);
+    }
+
+    // ── AutoBlock ─────────────────────────────────────────────────────────────
+
+    private boolean hasShield(MinecraftClient mc) {
+        return mc.player.getOffHandStack().getItem() instanceof ShieldItem;
+    }
+
+    private void startBlocking(MinecraftClient mc) {
+        if (isBlocking || !hasShield(mc) || mc.player.isUsingItem()) return;
+        mc.interactionManager.interactItem(mc.player, Hand.OFF_HAND);
+        isBlocking = true;
+    }
+
+    private void stopBlocking(MinecraftClient mc) {
+        if (!isBlocking) return;
+        if (mc.player.isUsingItem() && mc.player.getActiveHand() == Hand.OFF_HAND) {
+            mc.player.stopUsingItem();
+        }
+        isBlocking = false;
+    }
+
+    private void stopBlockingIfNeeded(MinecraftClient mc) {
+        if (autoBlock.getValue()) stopBlocking(mc);
+    }
+
+    // ── Attack ────────────────────────────────────────────────────────────────
+
+    private void attack(MinecraftClient mc, LivingEntity target) {
+        Criticals crit = ModuleManager.get(Criticals.class);
+        if (crit != null && crit.isEnabled() && crits.getValue()) {
+            Criticals.sendCritPackets(mc);
+        }
+
+        boolean wasSprinting = mc.player.isSprinting();
+        // Disable sprint momentarily to prevent sword sweep hitting a 2nd entity
+        mc.player.setSprinting(false);
+
+        mc.interactionManager.attackEntity(mc.player, target);
+        mc.player.swingHand(Hand.MAIN_HAND);
+
+        // KeepSprint: restore sprint right after the attack packet so
+        // the server never sees us stop moving fast
+        if (keepSprint.getValue()) {
+            mc.player.setSprinting(wasSprinting);
+        }
+    }
+
     // ── Legit / Silent-Aim ────────────────────────────────────────────────────
+    // Per-activation state (declared here to avoid cluttering the class header)
+    private int     legitLockOn   = 0;
+    private int     legitHitDelay = 0;
+    private float   legitOsYaw    = 0f, legitOsPitch = 0f;
+    private boolean legitCorr     = false;
+    private static final int LEGIT_LOCK = 6;
+
     private void handleLegit(MinecraftClient mc, LivingEntity target) {
         if (!srvRotReady) {
             serverYaw    = savedCamYaw;
@@ -182,42 +359,50 @@ public class KillAura extends Module {
             srvRotReady  = true;
         }
 
-        float[] ideal = getRotationsTo(mc.player, target);
+        float[] ideal      = getRotationsTo(mc.player, target);
+        float   cleanAngle = angleFromRot(serverYaw, serverPitch, mc.player, target);
 
-        // Idle ticks: hold rotation still occasionally (human micro-pause)
-        if (idleTicks > 0) {
-            idleTicks--;
-            lockOnTicks++;
-            return;
-        }
-        float angleDist = angleFromRot(serverYaw, serverPitch, mc.player, target);
-        if (angleDist < 10f && rng.nextFloat() < 0.10f) {
-            idleTicks = 1 + rng.nextInt(3);
-        }
-
-        // Jitter refresh every 12-20 ticks
+        // ── Jitter ±0.35° yaw / ±0.20° pitch, refresh 8-16 ticks ─────────
+        // Old values (±1.75° / ±1.0°) were 3-4× too large for Vulcan
+        // Hitbox A which flags at 0.42°. With old jitter the attack gate
+        // (now 0.40°) was almost never cleared so legit mode barely attacked.
         if (--jitterCooldown <= 0) {
-            jitterYaw      = (rng.nextFloat() - 0.5f) * 3.0f;
-            jitterPitch    = (rng.nextFloat() - 0.5f) * 1.8f;
-            jitterCooldown = 12 + rng.nextInt(9);
+            jitterYaw      = (rng.nextFloat() - 0.5f) * 0.70f;  // ±0.35°
+            jitterPitch    = (rng.nextFloat() - 0.5f) * 0.40f;  // ±0.20°
+            jitterCooldown = 8 + rng.nextInt(9);
         }
-        ideal[0] += jitterYaw;
-        ideal[1]  = MathHelper.clamp(ideal[1] + jitterPitch, -90f, 90f);
 
-        // Variable step size (4-10 deg/tick) — constant speed is detectable
-        float stepYaw   = 4f + rng.nextFloat() * 6f;
-        float stepPitch = 3f + rng.nextFloat() * 5f;
+        // ── Overshoot / correct — proper 2-tick cycle ─────────────────────
+        float osY = 0f, osP = 0f;
+        if (legitCorr) {
+            osY = -legitOsYaw; osP = -legitOsPitch;
+            legitCorr = false;
+        } else if (cleanAngle > 3f && cleanAngle < 20f && rng.nextFloat() < 0.08f) {
+            legitOsYaw = (rng.nextFloat() - 0.5f) * 3.5f;
+            legitOsPitch = (rng.nextFloat() - 0.5f) * 2.0f;
+            osY = legitOsYaw; osP = legitOsPitch;
+            legitCorr = true;
+        }
 
-        serverYaw   = smoothStep(prevSrvYaw,   ideal[0], stepYaw);
-        serverPitch = smoothStep(prevSrvPitch, ideal[1], stepPitch);
+        float tYaw   = ideal[0] + jitterYaw + osY;
+        float tPitch = MathHelper.clamp(ideal[1] + jitterPitch + osP, -90f, 90f);
 
-        // GCD fix with slight imperfection (15% of ticks)
+        // ── Distance-adaptive step sizes (old: constant 16°/13°) ──────────
+        float sY, sP;
+        if      (cleanAngle > 15f) { sY = 7f  + rng.nextFloat() * 5f;   sP = 5f  + rng.nextFloat() * 4f; }
+        else if (cleanAngle >  5f) { sY = 3f  + rng.nextFloat() * 4f;   sP = 2f  + rng.nextFloat() * 3f; }
+        else                        { sY = 0.8f + rng.nextFloat() * 1.8f; sP = 0.6f + rng.nextFloat() * 1.2f; }
+
+        serverYaw   = smoothStep(prevSrvYaw,   tYaw,   sY);
+        serverPitch = smoothStep(prevSrvPitch, tPitch, sP);
+
+        // ── GCD + 15 % sub-GCD noise ───────────────────────────────────────
         float gcd    = getGcd(mc);
         float dYaw   = Math.round((serverYaw   - prevSrvYaw)   / gcd) * gcd;
         float dPitch = Math.round((serverPitch - prevSrvPitch) / gcd) * gcd;
         if (rng.nextFloat() < 0.15f) {
-            dYaw   += (rng.nextFloat() - 0.5f) * gcd * 0.4f;
-            dPitch += (rng.nextFloat() - 0.5f) * gcd * 0.4f;
+            dYaw   += (rng.nextFloat() - 0.5f) * gcd * 0.35f;
+            dPitch += (rng.nextFloat() - 0.5f) * gcd * 0.35f;
         }
         serverYaw    = prevSrvYaw   + dYaw;
         serverPitch  = prevSrvPitch + dPitch;
@@ -227,116 +412,64 @@ public class KillAura extends Module {
         mc.player.setHeadYaw(serverYaw);
         mc.player.bodyYaw = serverYaw;
 
-        lockOnTicks++;
-        if (lockOnTicks < 5) return; // warm-up: track before first hit
+        legitLockOn++;
+        if (legitHitDelay > 0) { legitHitDelay--; return; }
+        if (legitLockOn < LEGIT_LOCK) return;
 
-        // ── Attack only when crosshair is within 1.5° of target ──────────────
-        // (Vulcan Hitbox A: max-angle 0.42 — we use 1.5 for margin)
-        if (angleFromRot(serverYaw, serverPitch, mc.player, target) > 1.5f) return;
+        // ── Attack gate: Vulcan Hitbox A = 0.42°, we use 0.40° ────────────
+        // Old gate was 35° — effectively always attack regardless of aim.
+        float sentAngle = angleFromRot(serverYaw, serverPitch, mc.player, target);
+        if (sentAngle > 0.40f) return;
 
         attack(mc, target);
+        legitHitDelay = 5 + rng.nextInt(6);
     }
-
-    // ── Attack ────────────────────────────────────────────────────────────────
-    private void attack(MinecraftClient mc, LivingEntity target) {
-        if (!legit.getValue() && crits.getValue()) {
-            Criticals crit = ModuleManager.get(Criticals.class);
-            if (crit != null && crit.isEnabled()) Criticals.sendCritPackets(mc);
-        }
-        boolean wasSprinting = mc.player.isSprinting();
-        mc.player.setSprinting(false);
-        mc.interactionManager.attackEntity(mc.player, target);
-        mc.player.swingHand(Hand.MAIN_HAND);
-        if (keepSprint.getValue()) mc.player.setSprinting(wasSprinting);
-    }
-
-    // ── LoS / Raycast ─────────────────────────────────────────────────────────
-    private boolean hasLineOfSight(MinecraftClient mc, LivingEntity target) {
-        Vec3d eye = new Vec3d(mc.player.getX(),
-            mc.player.getY() + mc.player.getEyeHeight(mc.player.getPose()), mc.player.getZ());
-        Vec3d tgt = new Vec3d(target.getX(), target.getY() + target.getHeight() * 0.5, target.getZ());
-        HitResult hit = mc.world.raycast(new RaycastContext(eye, tgt,
-            RaycastContext.ShapeType.COLLIDER, RaycastContext.FluidHandling.NONE, mc.player));
-        return hit.getType() == HitResult.Type.MISS;
-    }
-
-    private LivingEntity findCrosshairTarget(MinecraftClient mc) {
-        Vec3d eye  = new Vec3d(mc.player.getX(),
-            mc.player.getY() + mc.player.getEyeHeight(mc.player.getPose()), mc.player.getZ());
-        Vec3d look = mc.player.getRotationVec(1f);
-        Vec3d end  = eye.add(look.multiply(range.getValue()));
-        LivingEntity best = null; double bestDist = Double.MAX_VALUE;
-        for (LivingEntity e : mc.world.getEntitiesByClass(LivingEntity.class,
-                mc.player.getBoundingBox().expand(range.getValue()), en -> isValidTarget(mc, en))) {
-            if (raycast.getValue() == RaycastMode.ENEMY && !(e instanceof PlayerEntity)) continue;
-            var hit = e.getBoundingBox().expand(0.3).raycast(eye, end);
-            if (hit.isPresent()) {
-                double d = eye.squaredDistanceTo(hit.get());
-                if (d < bestDist) { bestDist = d; best = e; }
-            }
-        }
-        return best;
-    }
-
-    // ── Validation ────────────────────────────────────────────────────────────
-    private boolean isValidTarget(MinecraftClient mc, LivingEntity e) {
-        if (e == mc.player || !e.isAlive()) return false;
-        if (e instanceof PlayerEntity p) {
-            if (!players.getValue()) return false;
-            if (p.isCreative() || p.isSpectator()) return false;
-            if (teamCheck.getValue() && isTeammate(mc.player, p)) return false;
-        } else { if (!mobs.getValue()) return false; }
-        return true;
-    }
-
-    private static boolean isTeammate(PlayerEntity me, PlayerEntity other) {
-        var a = me.getScoreboardTeam(); var b = other.getScoreboardTeam();
-        return a != null && a == b;
-    }
-    private static boolean isHoldingWeapon(MinecraftClient mc) {
-        ItemStack s = mc.player.getMainHandStack();
-        return s.isIn(ItemTags.SWORDS) || s.isIn(ItemTags.AXES);
-    }
-
-    // ── AutoBlock ─────────────────────────────────────────────────────────────
-    private void startBlocking(MinecraftClient mc) {
-        if (isBlocking || !(mc.player.getOffHandStack().getItem() instanceof ShieldItem)
-                || mc.player.isUsingItem()) return;
-        mc.interactionManager.interactItem(mc.player, Hand.OFF_HAND);
-        isBlocking = true;
-    }
-    private void stopBlocking(MinecraftClient mc) {
-        if (!isBlocking) return;
-        if (mc.player.isUsingItem() && mc.player.getActiveHand() == Hand.OFF_HAND)
-            mc.player.stopUsingItem();
-        isBlocking = false;
-    }
-    private void stopBlockingIfNeeded(MinecraftClient mc) { if (autoBlock.getValue()) stopBlocking(mc); }
 
     // ── Rotation math ─────────────────────────────────────────────────────────
+
     private static float[] getRotationsTo(PlayerEntity player, LivingEntity target) {
-        double dx = target.getX() - player.getX();
-        double dy = (target.getY() + target.getHeight() * 0.5)
-                  - (player.getY() + player.getEyeHeight(player.getPose()));
-        double dz = target.getZ() - player.getZ();
-        double h  = Math.sqrt(dx * dx + dz * dz);
-        return new float[]{
-            (float) Math.toDegrees(Math.atan2(dz, dx)) - 90f,
-            MathHelper.clamp((float) -Math.toDegrees(Math.atan2(dy, h)), -90f, 90f)
-        };
+        double dx    = target.getX() - player.getX();
+        double dy    = (target.getY() + target.getHeight() * 0.5)
+                     - (player.getY() + player.getEyeHeight(player.getPose()));
+        double dz    = target.getZ() - player.getZ();
+        double hDist = Math.sqrt(dx * dx + dz * dz);
+        float  yaw   = (float) Math.toDegrees(Math.atan2(dz, dx)) - 90f;
+        float  pitch = (float) -Math.toDegrees(Math.atan2(dy, hDist));
+        return new float[]{ yaw, MathHelper.clamp(pitch, -90f, 90f) };
     }
-    private static float smoothStep(float cur, float tgt, float max) {
-        return cur + MathHelper.clamp(MathHelper.wrapDegrees(tgt - cur), -max, max);
+
+    private static float smoothStep(float current, float target, float maxStep) {
+        float diff = MathHelper.wrapDegrees(target - current);
+        return current + MathHelper.clamp(diff, -maxStep, maxStep);
     }
-    private static float angleFromRot(float yaw, float pitch, PlayerEntity p, LivingEntity t) {
-        double yr = Math.toRadians(yaw), pr = Math.toRadians(pitch);
-        Vec3d look = new Vec3d(-Math.sin(yr)*Math.cos(pr), -Math.sin(pr), Math.cos(yr)*Math.cos(pr)).normalize();
-        Vec3d eye  = new Vec3d(p.getX(), p.getY()+p.getEyeHeight(p.getPose()), p.getZ());
-        Vec3d dir  = new Vec3d(t.getX(), t.getY()+t.getHeight()*0.5, t.getZ()).subtract(eye).normalize();
-        return (float) Math.toDegrees(Math.acos(MathHelper.clamp(look.dotProduct(dir), -1.0, 1.0)));
+
+    private static float angleFromRot(float yaw, float pitch,
+                                      PlayerEntity player, LivingEntity target) {
+        double yr  = Math.toRadians(yaw);
+        double pr  = Math.toRadians(pitch);
+        Vec3d look = new Vec3d(
+            -Math.sin(yr) * Math.cos(pr),
+            -Math.sin(pr),
+             Math.cos(yr) * Math.cos(pr)
+        ).normalize();
+        Vec3d tgt = new Vec3d(
+            target.getX(),
+            target.getY() + target.getHeight() * 0.5,
+            target.getZ()
+        );
+        Vec3d eye = new Vec3d(
+            player.getX(),
+            player.getY() + player.getEyeHeight(player.getPose()),
+            player.getZ()
+        );
+        double dot = MathHelper.clamp(look.dotProduct(tgt.subtract(eye).normalize()), -1.0, 1.0);
+        return (float) Math.toDegrees(Math.acos(dot));
     }
+
     private static float getGcd(MinecraftClient mc) {
-        double f = mc.options.getMouseSensitivity().getValue() * 0.6 + 0.2;
-        return (float)(f * f * f * 1.2);
+        double sens = mc.options.getMouseSensitivity().getValue();
+        double f    = sens * 0.6 + 0.2;
+        return (float) (f * f * f * 1.2);
     }
 }
+
