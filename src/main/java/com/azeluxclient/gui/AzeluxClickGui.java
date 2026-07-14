@@ -401,10 +401,13 @@ public class AzeluxClickGui extends Screen {
         ctx.drawText(textRenderer, optModule.getDescription(), gx + 82, gy + 20, C_DIM, false);
         ctx.fill(gx, gy + 30, gx + settW, gy + 31, 0x33FFFFFF);
 
+        // Scissor to content area — items scrolled above the header or below
+        // the panel bottom are clipped, so they can never overlap the fixed
+        // Back button / title / description elements.
+        ctx.enableScissor(gx, gy + 40, gx + settW, panY + panH);
         int sy = gy + 40 - settingsScrollY;
         for (Setting<?> s : optModule.getSettings()) {
-            if (sy > panY + panH) { sy += (s instanceof SliderSetting ? 42 : 20); continue; }
-            if (sy + 44 < gy + 40) { sy += (s instanceof SliderSetting ? 42 : 20); continue; }
+            if (sy > panY + panH) break;   // nothing more visible below
             if (s instanceof BooleanSetting bs) {
                 ctx.drawText(textRenderer, bs.getName(), gx + 4, sy + 2, C_WHITE, false);
                 int bgW = 30, bgH = 12, togW = 20;
@@ -429,6 +432,7 @@ public class AzeluxClickGui extends Screen {
                 sy += 24;
             }
         }
+        ctx.disableScissor();
     }
 
     // ══════════════════════════════════════════════════════════════════════════
@@ -718,4 +722,5 @@ public class AzeluxClickGui extends Screen {
         return key == null ? null : iconTex(key);
     }
 }
+
 
