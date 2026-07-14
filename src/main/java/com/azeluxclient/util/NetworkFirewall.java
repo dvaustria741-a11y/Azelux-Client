@@ -8,47 +8,63 @@ import java.util.Set;
 /**
  * NetworkFirewall — always-on anti-detection packet layer.
  *
- * What it does:
- *   1. Spoof client brand as "vanilla" so the server cannot detect Fabric/mods
- *      via the minecraft:brand plugin channel.
- *   2. Whitelist only vanilla channels (minecraft:brand, minecraft:register).
- *      All other incoming custom payload packets (anticheat probes, Fabric
- *      channel advertisements, etc.) are silently dropped before reaching
- *      any registered listener.
- *   3. Silent consume — rejected packets are cancelled cleanly, leaving no
- *      "no response" anomaly logged server-side.
+ * ── What it does ─────────────────────────────────────────────────────────────
+ *  1. Spoof client brand as "vanilla" (via BrandMixin).
+ *  2. Block incoming custom payload packets from known anticheat / mod-probe
+ *     channels. All vanilla minecraft: channels are ALLOWED so normal game
+ *     init (custom_report_details, server_links, etc.) continues to work.
  *
- * Always active — no toggle. Call NetworkFirewall.init() once from
- * AzeluxClient.onInitializeClient() and it stays on for the lifetime
- * of the game session.
+ * ── Why not whitelist-only ────────────────────────────────────────────────────
+ *  The original firewall-config.json5 used a whitelist of only minecraft:brand
+ *  and minecraft:register. In 1.21.x Minecraft sends many more minecraft:
+ *  channels during session init (minecraft:custom_report_details,
+ *  minecraft:server_links, etc.). Blocking them caused the client to freeze —
+ *  movement keys stopped working even with no modules active.
+ *
+ *  Fix: ALLOW everything in the minecraft: namespace. Only block channels from
+ *  namespaces known to be used by anticheats / mod detectors.
  */
 public class NetworkFirewall {
 
-    /** Brand sent to the server — appears as a vanilla client. */
     public static final String BRAND = "vanilla";
 
     /**
-     * Channels allowed through in both directions.
-     * Everything else is silently dropped.
+     * Namespace prefixes that are always blocked.
+     * These are never used by vanilla Minecraft.
      */
-    public static final Set<String> ALLOWED_CHANNELS = Set.of(
-        "minecraft:brand",
-        "minecraft:register"
+    private static final Set<String> BLOCKED_NAMESPACES = Set.of(
+        "v_c",        // Vulcan anticheat
+        "v_f",        // Vulcan anticheat (flag channel)
+        "grim",       // GrimAC
+        "intave",     // Intave anticheat
+        "wyvern",     // Wyvern anticheat
+        "karhu",      // Karhu anticheat
+        "spartan",    // Spartan anticheat
+        "matrix",     // Matrix anticheat
+        "negativity", // Negativity anticheat
+        "nocheatplus" // NoCheatPlus
     );
 
     /**
-     * Returns true if an incoming custom payload on this channel
-     * should be allowed through. All others are silently dropped.
+     * Returns true if the incoming custom payload packet on this channel
+     * should be DROPPED. All minecraft: channels pass through.
+     * All known anticheat namespaces are blocked.
      */
-    public static boolean isChannelAllowed(String channel) {
-        return ALLOWED_CHANNELS.contains(channel);
+    public static boolean shouldBlock(String channel) {
+        // Always allow everything vanilla
+        if (channel.startsWith("minecraft:")) return false;
+        // Allow fml/forge channels (some servers use these for handshake)
+        if (channel.startsWith("fml:") || channel.startsWith("forge:")) return false;
+        // Block known anticheat namespaces
+        String ns = channel.contains(":") ? channel.substring(0, channel.indexOf(':')) : channel;
+        return BLOCKED_NAMESPACES.contains(ns.toLowerCase());
     }
 
     public static void init() {
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->
             AzeluxClient.LOGGER.info(
-                "[NetworkFirewall] Active — brand=\"{}\", allowed channels: {}",
-                BRAND, ALLOWED_CHANNELS)
+                "[NetworkFirewall] Active — brand=\"{}\", blocking anticheat namespaces: {}",
+                BRAND, BLOCKED_NAMESPACES)
         );
     }
 }
