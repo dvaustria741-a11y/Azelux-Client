@@ -28,7 +28,7 @@ public class AimAssist extends Module {
     private final BooleanSetting interpolation  = register(new BooleanSetting("Interpolation",   true));
     // Target must be within this angle of where you're already looking.
     // Beyond this cone AimAssist stops pulling so you can look away freely.
-    private final SliderSetting  fov            = register(new SliderSetting ("FOV",             60.0, 5.0, 180.0));
+    private final SliderSetting  fov            = register(new SliderSetting ("FOV",             90.0, 5.0, 180.0));
 
     public AimAssist() {
         super("AimAssist", "Smoothly aims at the nearest entity.", Category.COMBAT);
@@ -38,7 +38,11 @@ public class AimAssist extends Module {
     public void onTick(MinecraftClient client) {
         if (client.player == null || client.world == null) return;
 
-        if (onAttack.getValue() && client.player.getAttackCooldownProgress(0f) < 0.85f) return;
+        // onAttack gate: only applies in snap mode (interpolation OFF).
+        // In smooth mode aim runs every tick; blocking it to 1-2 ticks/attack
+        // makes 10-20 % movement invisible — that's why smooth appeared 'not working'.
+        if (!interpolation.getValue() && onAttack.getValue()
+                && client.player.getAttackCooldownProgress(0f) < 0.85f) return;
 
         double r = range.getValue();
         Box box = client.player.getBoundingBox().expand(r);
@@ -60,16 +64,14 @@ public class AimAssist extends Module {
                     // FOV gate: only assist if target is within the configured cone.
                     // When the player deliberately looks away (> FOV/2 degrees off)
                     // AimAssist pauses so they can retreat, eat, or look around freely.
-                    double dx2 = t.getX() - client.player.getX();
-                    double dy2 = t.getY() + t.getHeight() * 0.5 - client.player.getEyeY();
-                    double dz2 = t.getZ() - client.player.getZ();
-                    double hd2 = Math.sqrt(dx2 * dx2 + dz2 * dz2);
+                    // FOV gate: yaw-only, same axis as isBehind.
+                    // Old code checked pitch too (AND logic) — a target at eye level
+                    // with player tilted slightly blocked the assist entirely.
+                    double dx2    = t.getX() - client.player.getX();
+                    double dz2    = t.getZ() - client.player.getZ();
                     float tYaw2   = (float) Math.toDegrees(Math.atan2(-dx2, dz2));
-                    float tPitch2 = (float) Math.toDegrees(-Math.atan2(dy2, hd2));
-                    float dYaw2   = Math.abs(MathHelper.wrapDegrees(tYaw2   - client.player.getYaw()));
-                    float dPitch2 = Math.abs(MathHelper.wrapDegrees(tPitch2 - client.player.getPitch()));
-                    float halfFov = (float)(fov.getValue() / 2.0);
-                    if (dYaw2 <= halfFov && dPitch2 <= halfFov) aimAt(client, t);
+                    float dYaw2   = Math.abs(MathHelper.wrapDegrees(tYaw2 - client.player.getYaw()));
+                    if (dYaw2 <= fov.getValue() / 2.0) aimAt(client, t);
                 });
     }
 
@@ -126,7 +128,7 @@ public class AimAssist extends Module {
             // t=0.10 per tick — fully locks on in ~40 ticks (2 s). Visibly smooth.
             // Old formula (/ 10) gave t=0.5 → snapped in 7 ticks, indistinguishable
             // from the snap mode — that's why toggle appeared to do nothing.
-            float speed = (float) (smooth.getValue() / 50.0);
+            float speed = (float) (smooth.getValue() / 20.0);
             client.player.setYaw  (lerpAngle(curYaw,   targetYaw,   speed));
             client.player.setPitch(MathHelper.clamp(lerpAngle(curPitch, targetPitch, speed), -90f, 90f));
         } else {
@@ -140,6 +142,7 @@ public class AimAssist extends Module {
         return from + MathHelper.wrapDegrees(to - from) * t;
     }
 }
+
 
 
 
