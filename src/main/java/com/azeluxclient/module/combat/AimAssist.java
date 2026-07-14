@@ -1,73 +1,168 @@
-package com.azeluxclient.module.player;
+package com.azeluxclient.module.combat;
 
 import com.azeluxclient.module.Module;
-import com.azeluxclient.mixin.KeyBindingAccessor;
+import com.azeluxclient.setting.BooleanSetting;
 import com.azeluxclient.setting.SliderSetting;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.mob.MobEntity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.scoreboard.AbstractTeam;
+import net.minecraft.util.math.Box;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.Vec3d;
 
-import java.util.Random;
+import java.util.Comparator;
+import java.util.List;
 
-public class AutoClicker extends Module {
-    private final SliderSetting cps = register(new SliderSetting("CPS", 10.0, 1.0, 20.0));
+public class AimAssist extends Module {
 
-    private final Random rng = new Random();
-    private int   ticksLeft = 0;
-    private int   prevDelay = -1;
+    private final SliderSetting  range     = register(new SliderSetting ("Range",           3.5,  1.0, 6.0));
+    private final SliderSetting  smooth    = register(new SliderSetting ("Smooth",           5.0,  1.0, 15.0));
+    private final BooleanSetting players   = register(new BooleanSetting("Players",          true));
+    private final BooleanSetting mobs      = register(new BooleanSetting("Mobs",             true));
+    private final BooleanSetting onAttack  = register(new BooleanSetting("Only On Attack",   true));
+    private final BooleanSetting teamCheck      = register(new BooleanSetting("Team Check",       false));
+    // When OFF: snaps instantly to target (useful for testing aim reach/hitbox).
+    // When ON : smoothly interpolates at the speed set by Smooth slider.
+    private final BooleanSetting interpolation  = register(new BooleanSetting("Interpolation",   true));
+    // Target must be within this angle of where you're already looking.
+    // Beyond this cone AimAssist stops pulling so you can look away freely.
+    private final SliderSetting  fov            = register(new SliderSetting ("FOV",             90.0, 5.0, 180.0));
 
-    public AutoClicker() {
-        super("AutoClicker", "Automatically left-clicks at a set clicks-per-second.", Category.PLAYER);
+    public AimAssist() {
+        super("AimAssist", "Smoothly aims at the nearest entity.", Category.COMBAT);
     }
-
-    /**
-     * Gaussian-jittered delay, CV ≈ 22 % — matches human clicking stats.
-     * Anti-repeat nudge breaks Vulcan's sequence-pattern checks (G, I, J).
-     */
-    private int randomDelay() {
-        double base  = 20.0 / cps.getValue();
-        double noise = rng.nextGaussian() * base * 0.22;
-        noise = Math.max(-base * 0.45, Math.min(base * 0.45, noise));
-        int delay = Math.max(1, (int) Math.round(base + noise));
-        if (delay == prevDelay)
-            delay = Math.max(1, delay + (rng.nextBoolean() ? 1 : -1));
-        prevDelay = delay;
-        return delay;
-    }
-
-    @Override public void onEnable()  { prevDelay = -1; ticksLeft = randomDelay(); }
-    @Override public void onDisable() { ticksLeft = 0;  prevDelay = -1; }
 
     @Override
     public void onTick(MinecraftClient client) {
-        if (client.player == null || client.interactionManager == null) return;
-        if (client.player.isUsingItem()) return;
-        if (--ticksLeft > 0) return;
-        ticksLeft = randomDelay();
+        if (client.player == null || client.world == null) return;
 
-        // ~4 % miss rate — human hesitation
-        if (rng.nextInt(25) == 0) return;
+        // onAttack gate: only applies in snap mode (interpolation OFF).
+        // In smooth mode aim runs every tick; blocking it to 1-2 ticks/attack
+        // makes 10-20 % movement invisible — that's why smooth appeared 'not working'.
+        if (!interpolation.getValue() && onAttack.getValue()
+                && client.player.getAttackCooldownProgress(0f) < 0.85f) return;
 
-        if (client.player.getAttackCooldownProgress(0f) < 1.0f) return;
+        double r = range.getValue();
+        Box box = client.player.getBoundingBox().expand(r);
 
-        /**
-         * Legit attack via MC's own input system.
-         *
-         * Incrementing attackKey.timesPressed by 1 places exactly one "key
-         * press" event in MC's queue.  On the next call to handleInputEvents()
-         * MC calls wasPressed() → true → runs its full doAttack() path:
-         *   ray-cast to find target, call interactionManager.attackEntity(),
-         *   swing animation, sound — everything a real click produces.
-         *
-         * Why this is better than Robot.mousePress():
-         *   • Works on Android (no java.awt dependency)
-         *   • Guaranteed to go through MC's own attack handler
-         *   • Vulcan sees a normal attack originating from MC's input loop
-         *
-         * Why this is better than direct interactionManager.attackEntity():
-         *   • MC's handleInputEvents() performs ray-casting and targeting —
-         *     the same checks a real click triggers, so there's no shortcut
-         *     that can be fingerprinted server-side.
-         */
-        KeyBindingAccessor atk = (KeyBindingAccessor) client.options.attackKey;
-        atk.setTimesPressed(atk.getTimesPressed() + 1);
+        List<LivingEntity> targets = client.world.getEntitiesByClass(
+                LivingEntity.class, box,
+                e -> e != client.player
+                        && !e.isDead()
+                        && isValidTarget(client, e)
+                        && e.squaredDistanceTo(client.player) <= r * r
+                        && !isTeammate(client, e)
+                        && !isBehind(client, e)
+                        && !isTooFarBelow(client, e)
+        );
+
+        targets.stream()
+                .min(Comparator.comparingDouble(e -> e.squaredDistanceTo(client.player)))
+                .ifPresent(t -> {
+                    // FOV gate: only assist if target is within the configured cone.
+                    // When the player deliberately looks away (> FOV/2 degrees off)
+                    // AimAssist pauses so they can retreat, eat, or look around freely.
+                    // FOV gate: yaw-only, same axis as isBehind.
+                    // Old code checked pitch too (AND logic) — a target at eye level
+                    // with player tilted slightly blocked the assist entirely.
+                    double dx2    = t.getX() - client.player.getX();
+                    double dz2    = t.getZ() - client.player.getZ();
+                    float tYaw2   = (float) Math.toDegrees(Math.atan2(-dx2, dz2));
+                    float dYaw2   = Math.abs(MathHelper.wrapDegrees(tYaw2 - client.player.getYaw()));
+                    if (dYaw2 <= fov.getValue() / 2.0) aimAt(client, t);
+                });
+    }
+
+    private boolean isValidTarget(MinecraftClient client, LivingEntity e) {
+        if (e instanceof PlayerEntity p) {
+            return players.getValue() && !p.isCreative();
+        }
+        if (e instanceof MobEntity) {
+            return mobs.getValue();
+        }
+        return false;
+    }
+
+    private boolean isTeammate(MinecraftClient client, LivingEntity entity) {
+        if (!teamCheck.getValue()) return false;
+        AbstractTeam myTeam = client.player.getScoreboardTeam();
+        if (myTeam == null) return false;
+        AbstractTeam theirTeam = entity.getScoreboardTeam();
+        return theirTeam != null && theirTeam.getName().equals(myTeam.getName());
+    }
+
+    /** Returns true when the entity is more than 90 degrees behind the player's look direction. */
+    private boolean isBehind(MinecraftClient client, LivingEntity entity) {
+        // Use getX/getZ instead of getPos() - getPos() does not exist in Yarn 1.21.11
+        double dx = entity.getX() - client.player.getX();
+        double dz = entity.getZ() - client.player.getZ();
+        float targetYaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+        return Math.abs(MathHelper.wrapDegrees(targetYaw - client.player.getYaw())) > 90f;
+    }
+
+    /**
+     * Returns true when the target's centre is more than 0.8 blocks below the player's feet.
+     * Prevents the aim assist from locking onto entities that have fallen into a pit below you.
+     */
+    private boolean isTooFarBelow(MinecraftClient client, LivingEntity entity) {
+        double targetCenterY = entity.getY() + entity.getHeight() * 0.5;
+        return client.player.getY() - targetCenterY > 0.8;
+    }
+
+    private void aimAt(MinecraftClient client, LivingEntity target) {
+        Vec3d eyes   = client.player.getEyePos();
+        Vec3d center = new Vec3d(target.getX(), target.getY() + target.getHeight() * 0.5, target.getZ());
+        Vec3d d      = center.subtract(eyes);
+
+        double horizDist   = Math.sqrt(d.x * d.x + d.z * d.z);
+        float  targetYaw   = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
+        float  targetPitch = (float) Math.toDegrees(-Math.atan2(d.y, horizDist));
+
+        float curYaw   = client.player.getYaw();
+        float curPitch = client.player.getPitch();
+
+        // Compute the rotation delta we want to apply this tick
+        float dYaw, dPitch;
+        if (interpolation.getValue()) {
+            float speed = (float)(smooth.getValue() / 20.0);
+            dYaw   = MathHelper.wrapDegrees(lerpAngle(curYaw,   targetYaw,   speed) - curYaw);
+            dPitch = lerpAngle(curPitch, targetPitch, speed) - curPitch;
+        } else {
+            dYaw   = MathHelper.wrapDegrees(targetYaw - curYaw);
+            dPitch = MathHelper.clamp(targetPitch - curPitch, -90f - curPitch, 90f - curPitch);
+        }
+
+        // GCD quantization — snap delta to the minimum mouse step for the
+        // current sensitivity. setYaw/setPitch bypassed this and produced
+        // sub-GCD precision: a pattern Vulcan's Aim checks flag immediately.
+        float gcd = getGcd(client);
+        dYaw   = Math.round(dYaw   / gcd) * gcd;
+        dPitch = Math.round(dPitch / gcd) * gcd;
+        if (Math.abs(dYaw) < 0.001f && Math.abs(dPitch) < 0.001f) return;
+
+        // Apply via changeLookDirection — the identical code path used by
+        // Mouse.updateMouse() for real hardware input. changeLookDirection
+        // multiplies its args by 0.15 internally, so we divide by 0.15 to
+        // produce exactly `dYaw` degrees of rotation.
+        // Pitch sign: negative rawDY = pitch decreases = look up.
+        client.player.changeLookDirection(dYaw / 0.15, -dPitch / 0.15);
+    }
+
+    /** Minimum rotation step a real mouse can produce at this sensitivity. */
+    private static float getGcd(MinecraftClient mc) {
+        double s = mc.options.getMouseSensitivity().getValue();
+        double f = s * 0.6 + 0.2;
+        return (float)(f * f * f * 1.2);
+    }
+
+    private static float lerpAngle(float from, float to, float t) {
+        return from + MathHelper.wrapDegrees(to - from) * t;
     }
 }
+
+
+
+
+
