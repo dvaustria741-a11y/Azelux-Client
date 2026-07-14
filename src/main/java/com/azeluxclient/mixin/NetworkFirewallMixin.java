@@ -10,27 +10,23 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Always-on network firewall.
- *
- * Intercepts every incoming custom payload packet and silently drops
- * any channel not on the whitelist in NetworkFirewall.ALLOWED_CHANNELS.
- *
- * Uses CustomPayload.Id to extract the channel identifier — the Id record
- * exposes the Identifier via its id() accessor in 1.21.x Yarn.
+ * Silently drops incoming custom payload packets from known anticheat channels.
+ * All minecraft: namespace packets pass through so vanilla game init works.
  */
 @Mixin(ClientCommonNetworkHandler.class)
 public class NetworkFirewallMixin {
 
     @Inject(method = "onCustomPayload", at = @At("HEAD"), cancellable = true)
     private void firewall_onCustomPayload(CustomPayloadS2CPacket packet, CallbackInfo ci) {
-        CustomPayload payload = packet.payload();
-        // CustomPayload.Id<T> is a record whose accessor is id() -> Identifier
-        // We call getId() which is the Yarn name in 1.21.11 for the id method
-        CustomPayload.Id<?> payloadId = payload.getId();
-        String channel = payloadId.id().toString();
-
-        if (!NetworkFirewall.isChannelAllowed(channel)) {
-            ci.cancel();
+        try {
+            CustomPayload payload = packet.payload();
+            // getId() is the Yarn 1.21.x accessor for CustomPayload.Id<T>
+            String channel = payload.getId().id().toString();
+            if (NetworkFirewall.shouldBlock(channel)) {
+                ci.cancel();
+            }
+        } catch (Exception ignored) {
+            // If we can't read the channel, allow through — never break vanilla
         }
     }
 }
