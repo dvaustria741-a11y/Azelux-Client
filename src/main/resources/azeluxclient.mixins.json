@@ -10,7 +10,8 @@
     "LivingEntityMixin",
     "MinecraftClientAccessor",
     "NetworkFirewallMixin",
-    "TitleScreenMixin"
+    "TitleScreenMixin",
+    "KeyBindingAccessor"
   ],
   "injectors": {
     "defaultRequire": 1
