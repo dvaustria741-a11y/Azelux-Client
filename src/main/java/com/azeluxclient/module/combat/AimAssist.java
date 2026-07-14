@@ -122,8 +122,11 @@ public class AimAssist extends Module {
         float curPitch = client.player.getPitch();
 
         if (interpolation.getValue()) {
-            // Smooth interpolation toward target
-            float speed = (float) (smooth.getValue() / 10.0);
+            // Smooth interpolation: t = smooth / 50 so at default smooth=5 we get
+            // t=0.10 per tick — fully locks on in ~40 ticks (2 s). Visibly smooth.
+            // Old formula (/ 10) gave t=0.5 → snapped in 7 ticks, indistinguishable
+            // from the snap mode — that's why toggle appeared to do nothing.
+            float speed = (float) (smooth.getValue() / 50.0);
             client.player.setYaw  (lerpAngle(curYaw,   targetYaw,   speed));
             client.player.setPitch(MathHelper.clamp(lerpAngle(curPitch, targetPitch, speed), -90f, 90f));
         } else {
@@ -137,5 +140,6 @@ public class AimAssist extends Module {
         return from + MathHelper.wrapDegrees(to - from) * t;
     }
 }
+
 
 
