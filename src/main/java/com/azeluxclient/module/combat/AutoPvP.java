@@ -22,6 +22,8 @@ import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import org.lwjgl.glfw.GLFW;
 
+import java.awt.Robot;
+import java.awt.event.InputEvent;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
@@ -49,6 +51,15 @@ import java.util.Random;
  *                               priority: splash heal → gapple → golden apple → food.
  */
 public class AutoPvP extends Module {
+
+    // Same Robot approach as AutoClicker — OS-level left-click through the
+    // full LWJGL → GLFW → MC input pipeline instead of direct packet injection.
+    private static final Robot robot;
+    static {
+        Robot r = null;
+        try { r = new Robot(); } catch (Exception ignored) {}
+        robot = r;
+    }
 
     // ── Settings ──────────────────────────────────────────────────────────────
     private final SliderSetting  range       = register(new SliderSetting ("Range",        3.0,  2.0, 3.5));
@@ -268,7 +279,11 @@ public class AutoPvP extends Module {
         // Predictive: lead target by velocity × lag-comp ticks
         Vec3d vel = t.getVelocity();
         double px = t.getX() + vel.x * LAG_COMP;
-        double py = t.getY() + vel.y * LAG_COMP + t.getHeight() * 0.5;
+        // Y prediction disabled: target's vel.y oscillates between positive
+        // (jumping) and negative (falling) each tick due to gravity.
+        // Multiplied by LAG_COMP this swings pitch ±2° per tick = head shake.
+        // Horizontal prediction (X/Z) is stable so we keep that.
+        double py = t.getY() + t.getHeight() * 0.5;
         double pz = t.getZ() + vel.z * LAG_COMP;
 
         float[] ideal      = rotationsToPoint(mc.player, px, py, pz);
@@ -448,7 +463,13 @@ public class AutoPvP extends Module {
     private void doAttack(MinecraftClient mc, LivingEntity t) {
         boolean wasSprinting = mc.player.isSprinting();
         mc.player.setSprinting(false);
-        mc.interactionManager.attackEntity(mc.player, t);
+        if (robot != null) {
+            robot.mousePress(InputEvent.BUTTON1_DOWN_MASK);
+            robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
+        } else {
+            mc.interactionManager.attackEntity(mc.player, t);
+            mc.player.swingHand(Hand.MAIN_HAND);
+        }
         mc.player.swingHand(Hand.MAIN_HAND);
         mc.player.setSprinting(wasSprinting);
     }
@@ -496,4 +517,5 @@ public class AutoPvP extends Module {
         prevSrvYaw = 0f; prevSrvPitch = 0f;
     }
 }
+
 
