@@ -16,10 +16,14 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.item.SplashPotionItem;
 import net.minecraft.util.Hand;
+import net.minecraft.registry.tag.ItemTags;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import org.lwjgl.glfw.GLFW;
+
+import java.awt.Robot;
+import java.awt.event.InputEvent;
 
 import java.util.Comparator;
 import java.util.List;
@@ -43,6 +47,14 @@ import java.util.Random;
  *   airborne and falling, not a fake packet sequence.
  */
 public class AutoPvP extends Module {
+
+    // Robot for real OS-level left-click (goes through full LWJGL pipeline)
+    private static final Robot ROBOT;
+    static {
+        Robot r = null;
+        try { r = new Robot(); } catch (Exception ignored) {}
+        ROBOT = r;
+    }
 
     // ── Settings ──────────────────────────────────────────────────────────────
     private final SliderSetting  range       = register(new SliderSetting ("Range",        3.0,  2.0, 3.5));
@@ -201,8 +213,8 @@ public class AutoPvP extends Module {
         // Heal flow
         float hp = mc.player.getHealth();
         if (eatToHeal.getValue()) {
-            if (!healing && hp <= 12.0f) startHeal();
-            if (healing  && hp >= 18.0f) healing = false;
+            if (!healing && hp <= 4.0f) startHeal();   // ~2 hearts — only when critically low
+            if (healing  && hp >= 10.0f) healing = false; // stop at 5 hearts
         }
         if (healing) { tickHeal(mc); tickRetreat(mc); return; }
 
@@ -302,7 +314,7 @@ public class AutoPvP extends Module {
 
         if (--jitterTimer <= 0) {
             jitterYaw   = (rng.nextFloat() - 0.5f) * 0.70f;
-            jitterPitch = (rng.nextFloat() - 0.5f) * 0.40f;
+            jitterPitch = (rng.nextFloat() - 0.5f) * 0.15f; // reduced — pitch jitter causes head-bob
             jitterTimer = 8 + rng.nextInt(9);
         }
 
@@ -324,8 +336,16 @@ public class AutoPvP extends Module {
         else if (cleanAngle >  5f) factor = 0.18f + rng.nextFloat() * 0.10f;
         else                        factor = 0.08f + rng.nextFloat() * 0.07f;
 
-        serverYaw   = lerpAngle(prevSrvYaw,   tYaw,   factor);
-        serverPitch = lerpAngle(prevSrvPitch, tPitch, factor * 0.75f);
+        serverYaw   = lerpAngle(prevSrvYaw, tYaw, factor);
+
+        // Pitch convergence deadzone — once within 0.5° stop nudging pitch so
+        // the head doesn't visibly bob up/down on a stationary target.
+        float pitchDelta = Math.abs(MathHelper.wrapDegrees(tPitch - prevSrvPitch));
+        if (pitchDelta > 0.5f) {
+            serverPitch = lerpAngle(prevSrvPitch, tPitch, factor * 0.75f);
+        } else {
+            serverPitch = prevSrvPitch; // already converged — hold steady
+        }
 
         // GCD quantization + 15 % sub-GCD noise
         float gcd    = getGcd(mc);
@@ -445,11 +465,35 @@ public class AutoPvP extends Module {
 
     // ── Attack ────────────────────────────────────────────────────────────────
 
+    /** Equip best melee weapon found in hotbar (sword > axe). */
+    private void autoSwapWeapon(MinecraftClient mc) {
+        var inv = mc.player.getInventory();
+        // First pass: sword
+        for (int i = 0; i < 9; i++)
+            if (inv.getStack(i).isIn(ItemTags.SWORDS)) { inv.selectedSlot = i; return; }
+        // Second pass: axe
+        for (int i = 0; i < 9; i++)
+            if (inv.getStack(i).isIn(ItemTags.AXES))   { inv.selectedSlot = i; return; }
+    }
+
     private void doAttack(MinecraftClient mc, LivingEntity t) {
+        autoSwapWeapon(mc);
+
         boolean wasSprinting = mc.player.isSprinting();
-        mc.player.setSprinting(false);                  // prevent sword sweep AoE
-        mc.interactionManager.attackEntity(mc.player, t);
-        mc.player.swingHand(Hand.MAIN_HAND);
+        mc.player.setSprinting(false); // prevent sword sweep AoE
+
+        if (ROBOT != null) {
+            // Real OS-level left-click — same as AutoClicker approach.
+            // Goes through LWJGL → GLFW → MC input pipeline so the server
+            // receives a genuine attack from real mouse input, not a direct packet.
+            ROBOT.mousePress(InputEvent.BUTTON1_DOWN_MASK);
+            ROBOT.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
+        } else {
+            // Fallback for environments where java.awt.Robot is unavailable (e.g. some Android configs)
+            mc.interactionManager.attackEntity(mc.player, t);
+            mc.player.swingHand(Hand.MAIN_HAND);
+        }
+
         mc.player.setSprinting(wasSprinting);
     }
 
