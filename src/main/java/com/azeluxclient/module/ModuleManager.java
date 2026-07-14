@@ -49,7 +49,6 @@ public class ModuleManager {
 
         // ── Player ──────────────────────────────────────────────────────────
         modules.add(new AutoEat());
-        modules.add(new AutoPot());
         modules.add(new AutoClicker());
         modules.add(new FastUse());
         modules.add(new AutoTool());
