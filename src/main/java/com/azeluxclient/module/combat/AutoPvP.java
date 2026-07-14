@@ -1,7 +1,6 @@
 package com.azeluxclient.module.combat;
 
 import com.azeluxclient.module.Module;
-import com.azeluxclient.module.ModuleManager;
 import com.azeluxclient.module.movement.Freelook;
 import com.azeluxclient.setting.BooleanSetting;
 import com.azeluxclient.setting.SliderSetting;
@@ -22,8 +21,6 @@ import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import org.lwjgl.glfw.GLFW;
 
-import java.awt.Robot;
-import java.awt.event.InputEvent;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
@@ -31,35 +28,21 @@ import java.util.Random;
 /**
  * AutoPvP — fights like a skilled human PvP player.
  *
- * Activation: Hold C → activates while the key is held, deactivates on release.
- *             This keeps the toggle-based module system working normally but
- *             overlays a hold-detection layer on top.
+ * Activation : Hold C (or toggle from GUI).
+ * On enable  : switches to third-person + activates Freelook camera.
  *
- * On enable:
- *   • Switches to third-person back view so you can see yourself fighting.
- *   • Activates Freelook so you can orbit the camera while combat runs.
+ * Movement (real keyboard input via KeyBinding.setPressed):
+ *   Decisions are made in onTick (END) and applied in START_CLIENT_TICK
+ *   BEFORE handleInputEvents / KeyboardInput.tick runs. This goes through
+ *   the full MC movement pipeline (friction, acceleration, max-speed clamping)
+ *   — identical to a real player pressing W/A/S/D/sprint/jump.
  *
- * Combat features:
- *   1. Predictive silent aim  — leads target by velocity × lag-comp ticks,
- *                               GCD-quantized, with idle ticks, jitter,
- *                               and overshoot/correct cycle.
- *   2. Circle-strafe          — orbits target at ~2.8 m with random direction
- *                               switches every 1.5–4 s.
- *   3. W-tap                  — brief sprint breaks (2–4 ticks) every 0.4–1 s.
- *   4. Crit                   — micro-jump packets on 55 % of full-cooldown hits.
- *   5. Health-aware healing   — retreats and eats/drinks below 8 hearts;
- *                               priority: splash heal → gapple → golden apple → food.
+ * Critical hits (real jump attack):
+ *   State machine — jump on ground, wait until falling (velocity.y < 0),
+ *   then attack. Server registers a genuine crit because the player truly is
+ *   airborne and falling, not a fake packet sequence.
  */
 public class AutoPvP extends Module {
-
-    // Same Robot approach as AutoClicker — OS-level left-click through the
-    // full LWJGL → GLFW → MC input pipeline instead of direct packet injection.
-    private static final Robot robot;
-    static {
-        Robot r = null;
-        try { r = new Robot(); } catch (Exception ignored) {}
-        robot = r;
-    }
 
     // ── Settings ──────────────────────────────────────────────────────────────
     private final SliderSetting  range       = register(new SliderSetting ("Range",        3.0,  2.0, 3.5));
@@ -81,22 +64,24 @@ public class AutoPvP extends Module {
     private int     lockOnTicks   = 0;
     private static final int LOCK_ON = 5;
 
-    // ── State ─────────────────────────────────────────────────────────────────
-    private final Random  rng         = new Random();
-    private LivingEntity  target      = null;
-    private int           hitDelay    = 0;
-    private int           critCooldown = 0;
-    private Perspective   prevPerspective = null;
+    // ── Combat state ──────────────────────────────────────────────────────────
+    private final Random rng          = new Random();
+    private LivingEntity target       = null;
+    private int          hitDelay     = 0;
+    private int          critCooldown = 0;
 
-    // ── Hold-C key tracking ───────────────────────────────────────────────────
+    // Crit state machine: 0 = idle, 1 = jumped (waiting to fall)
+    private int critState = 0;
+
+    // ── Perspective ───────────────────────────────────────────────────────────
+    private Perspective prevPerspective = null;
+
+    // ── Hold-C ────────────────────────────────────────────────────────────────
     private boolean holdActive = false;
 
     // ── Strafe ────────────────────────────────────────────────────────────────
-    private double orbitAngle        = 0.0;
-    private int    strafeDir         = 1;
-    private int    strafeSwitchTimer = 0;
-    private static final double ORBIT_RADIUS = 2.8;
-    private static final double ORBIT_SPEED  = 0.055;
+    private int strafeDir         = 1;
+    private int strafeSwitchTimer = 0;
 
     // ── W-tap ─────────────────────────────────────────────────────────────────
     private int wTapClock    = 0;
@@ -107,6 +92,17 @@ public class AutoPvP extends Module {
     private boolean healing      = false;
     private int     healUseCd    = 0;
     private int     retreatTimer = 0;
+    private int     splashWarmup = 0;
+
+    // ── Keyboard flags (set in onTick, applied in START_CLIENT_TICK) ──────────
+    // These replace direct setVelocity/setSprinting calls so movement goes
+    // through MC's real movement pipeline, indistinguishable from a human.
+    private volatile boolean kForward = false;
+    private volatile boolean kBack    = false;
+    private volatile boolean kLeft    = false;
+    private volatile boolean kRight   = false;
+    private volatile boolean kSprint  = false;
+    private volatile boolean kJump    = false;
 
     // ── Lag comp ──────────────────────────────────────────────────────────────
     private static final int LAG_COMP = 3;
@@ -114,20 +110,32 @@ public class AutoPvP extends Module {
     // ─────────────────────────────────────────────────────────────────────────
 
     public AutoPvP() {
-        super("AutoPvP", "Hold C to fight — auto third-person + Freelook camera.", Category.COMBAT);
+        super("AutoPvP", "Hold C — real jump-crits, real keyboard movement.", Category.COMBAT);
 
-        // Apply silent-aim rotation BEFORE movement packets are sent each tick
         ClientTickEvents.START_CLIENT_TICK.register(client -> {
-            if (!isEnabled() || client.player == null || !srvRotReady) return;
+            if (client.player == null) return;
 
-            savedCamYaw   = client.player.getYaw();
-            savedCamPitch = client.player.getPitch();
-            camOverridden = true;
+            // 1. Silent aim — apply server rotation BEFORE movement packets are sent
+            if (isEnabled() && srvRotReady) {
+                savedCamYaw   = client.player.getYaw();
+                savedCamPitch = client.player.getPitch();
+                camOverridden = true;
 
-            client.player.setYaw(serverYaw);
-            client.player.setPitch(serverPitch);
-            client.player.setHeadYaw(serverYaw);
-            client.player.bodyYaw = serverYaw;
+                client.player.setYaw(serverYaw);
+                client.player.setPitch(serverPitch);
+                client.player.setHeadYaw(serverYaw);
+                client.player.bodyYaw = serverYaw;
+            }
+
+            // 2. Keyboard input — applied HERE so KeyboardInput.tick() picks them
+            //    up this same tick and routes them through the real movement pipeline.
+            //    When disabled, all keys are released (false) so nothing sticks.
+            client.options.forwardKey.setPressed(isEnabled() && kForward);
+            client.options.backKey.setPressed(isEnabled()    && kBack);
+            client.options.leftKey.setPressed(isEnabled()    && kLeft);
+            client.options.rightKey.setPressed(isEnabled()   && kRight);
+            client.options.sprintKey.setPressed(isEnabled()  && kSprint);
+            client.options.jumpKey.setPressed(isEnabled()    && kJump);
         });
     }
 
@@ -135,97 +143,70 @@ public class AutoPvP extends Module {
 
     @Override
     public void onEnable() {
-        resetAimState();
-        target        = null;
-        healing       = false;
-        holdActive    = false;
-        wTapClock     = 0;
-        wTapInterval  = 8 + rng.nextInt(13);
-        wTapOffTicks  = 0;
-        hitDelay      = 0;
-        critCooldown  = 0;
-        orbitAngle    = rng.nextDouble() * Math.PI * 2;
-        strafeDir     = rng.nextBoolean() ? 1 : -1;
-        strafeSwitchTimer = 30 + rng.nextInt(50);
+        resetAll();
 
         MinecraftClient mc = mc();
         if (mc != null) {
-            // Save and switch to third-person back view
             if (thirdPerson.getValue()) {
                 prevPerspective = mc.options.getPerspective();
                 mc.options.setPerspective(Perspective.THIRD_PERSON_BACK);
             }
-            // Enable Freelook so the camera can orbit freely while combat runs
             Freelook.setActive(true, mc);
         }
     }
 
     @Override
     public void onDisable() {
+        // Release all keys immediately so player doesn't keep walking
+        kForward = kBack = kLeft = kRight = kSprint = kJump = false;
+
         MinecraftClient mc = mc();
         if (mc != null && mc.player != null) {
-            // Restore camera rotation
             if (camOverridden) {
                 mc.player.setYaw(savedCamYaw);
                 mc.player.setPitch(savedCamPitch);
             }
-            // Restore original perspective
             if (prevPerspective != null) {
                 mc.options.setPerspective(prevPerspective);
                 prevPerspective = null;
             }
         }
-        // Deactivate freelook
         Freelook.setActive(false, mc);
-
-        target        = null;
-        healing       = false;
-        holdActive    = false;
-        camOverridden = false;
-        srvRotReady   = false;
+        resetAll();
     }
 
-    // ── Main tick ─────────────────────────────────────────────────────────────
+    // ── Main tick (END — after movement packets, before rendering) ────────────
 
     @Override
     public void onTick(MinecraftClient mc) {
         if (mc.player == null || mc.world == null) return;
 
-        // ── Hold-C detection ─────────────────────────────────────────────────
-        // The module can be toggled normally via the GUI, OR held via C key.
-        long win = mc.getWindow().getHandle();
+        // Hold-C gate
+        long win    = mc.getWindow().getHandle();
         boolean cHeld = GLFW.glfwGetKey(win, GLFW.GLFW_KEY_C) == GLFW.GLFW_PRESS;
-
-        if (cHeld && !holdActive) {
-            holdActive = true;
-            if (!isEnabled()) toggle(); // enable if not already on
-        } else if (!cHeld && holdActive) {
-            holdActive = false;
-            if (isEnabled()) toggle(); // release key → disable
-        }
-
+        if (cHeld && !holdActive) { holdActive = true;  if (!isEnabled()) toggle(); }
+        else if (!cHeld && holdActive) { holdActive = false; if (isEnabled()) toggle(); }
         if (!isEnabled()) return;
 
-        // ── Restore visual camera (after movement packet, before render) ──────
+        // Restore visual camera before rendering
         if (camOverridden) {
             mc.player.setYaw(savedCamYaw);
             mc.player.setPitch(savedCamPitch);
             camOverridden = false;
         }
 
-        // ── Health-aware healing ──────────────────────────────────────────────
+        // Clear keys at top of tick; sub-systems re-assert what they need
+        kForward = kBack = kLeft = kRight = kSprint = kJump = false;
+
+        // Heal flow
         float hp = mc.player.getHealth();
         if (eatToHeal.getValue()) {
-            if (!healing && hp <= 12.0f) startHeal();  // 6 hearts
-            if (healing && hp >= 18.0f)  healing = false; // 9 hearts (was 28 — impossible)
+            if (!healing && hp <= 12.0f) startHeal();
+            if (healing  && hp >= 18.0f) healing = false;
         }
-        if (healing) {
-            tickHeal(mc);
-            tickRetreat(mc);
-            return;
-        }
+        if (healing) { tickHeal(mc); tickRetreat(mc); return; }
 
-        // ── Find nearest valid target ─────────────────────────────────────────
+        // Target acquisition
         Box bb = mc.player.getBoundingBox().expand(range.getValue());
         List<LivingEntity> entities = mc.world.getEntitiesByClass(
             LivingEntity.class, bb,
@@ -234,7 +215,6 @@ public class AutoPvP extends Module {
                   ? e instanceof PlayerEntity p && !p.isCreative() && !p.isSpectator()
                   : true)
         );
-
         if (entities.isEmpty()) { target = null; lockOnTicks = 0; return; }
 
         target = entities.stream()
@@ -242,93 +222,110 @@ public class AutoPvP extends Module {
             .orElse(null);
         if (target == null) return;
 
-        // ── Combat ───────────────────────────────────────────────────────────
-        tickStrafe(mc);
-        tickWTap(mc);
+        // Sub-systems
         tickAim(mc, target);
+        tickStrafe();
+        tickWTap();
 
+        // ── Crit state machine ────────────────────────────────────────────────
+        // State 1: we already jumped — check if we're falling
+        if (critState == 1) {
+            kJump = false;
+            boolean airborne = !mc.player.isOnGround();
+            boolean falling  = mc.player.getVelocity().y < 0;
+
+            if (airborne && falling) {
+                // Perfect moment — attack now for a real crit
+                if (mc.player.getAttackCooldownProgress(0f) >= 1.0f
+                        && hitDelay <= 0 && lockOnTicks >= LOCK_ON) {
+                    float ang = angleFromRot(serverYaw, serverPitch, mc.player, target);
+                    if (ang <= 0.40f) {
+                        doAttack(mc, target);
+                        hitDelay     = 5 + rng.nextInt(5);
+                        critCooldown = 3 + rng.nextInt(5);
+                    }
+                }
+                critState = 0; // will land next tick, done
+            } else if (mc.player.isOnGround() && critState == 1) {
+                // Landed without a falling window (rare), abort
+                critState = 0;
+            }
+            return; // don't run normal attack this tick
+        }
+
+        // Normal attack gate
         if (mc.player.getAttackCooldownProgress(0f) < 1.0f) return;
         if (mc.player.isUsingItem()) return;
-        if (hitDelay > 0)           { hitDelay--; return; }
-        if (lockOnTicks < LOCK_ON)  return;
+        if (hitDelay > 0) { hitDelay--; return; }
+        if (lockOnTicks < LOCK_ON) return;
 
         float sentAngle = angleFromRot(serverYaw, serverPitch, mc.player, target);
         if (sentAngle > 0.40f) return;
 
+        // Decide: jump-crit (~55 % of hits) or plain attack
         if (critCooldown > 0) critCooldown--;
-        if (critCooldown == 0 && mc.player.isOnGround() && rng.nextFloat() < 0.55f) {
-            Criticals.sendCritPackets(mc);
-            critCooldown = 3 + rng.nextInt(5);
-        }
+        boolean doJumpCrit = critCooldown == 0
+                          && mc.player.isOnGround()
+                          && !mc.player.isSneaking()
+                          && rng.nextFloat() < 0.55f;
 
-        doAttack(mc, target);
-        hitDelay = 5 + rng.nextInt(5);
+        if (doJumpCrit) {
+            // Jump this tick; attack next tick once we're falling (state 1)
+            critState = 1;
+            kJump     = true;
+        } else {
+            doAttack(mc, target);
+            hitDelay = 5 + rng.nextInt(5);
+        }
     }
 
-    // ── Silent-aim (predictive, GCD-fixed, LiquidBounce-style) ───────────────
+    // ── Aim (predictive, GCD-fixed, interpolation-based) ─────────────────────
 
     private void tickAim(MinecraftClient mc, LivingEntity t) {
         if (!srvRotReady) {
-            serverYaw    = mc.player.getYaw();
-            serverPitch  = mc.player.getPitch();
-            prevSrvYaw   = serverYaw;
-            prevSrvPitch = serverPitch;
-            srvRotReady  = true;
+            serverYaw = savedCamYaw != 0 ? savedCamYaw : mc.player.getYaw();
+            serverPitch = savedCamPitch != 0 ? savedCamPitch : mc.player.getPitch();
+            prevSrvYaw = serverYaw; prevSrvPitch = serverPitch;
+            srvRotReady = true;
         }
 
-        // Predictive: lead target by velocity × lag-comp ticks
         Vec3d vel = t.getVelocity();
         double px = t.getX() + vel.x * LAG_COMP;
-        // Y prediction disabled: target's vel.y oscillates between positive
-        // (jumping) and negative (falling) each tick due to gravity.
-        // Multiplied by LAG_COMP this swings pitch ±2° per tick = head shake.
-        // Horizontal prediction (X/Z) is stable so we keep that.
-        double py = t.getY() + t.getHeight() * 0.5;
+        double py = t.getY() + t.getHeight() * 0.5;   // no Y lag (oscillates with gravity)
         double pz = t.getZ() + vel.z * LAG_COMP;
 
         float[] ideal      = rotationsToPoint(mc.player, px, py, pz);
         float   cleanAngle = angleFromRot(serverYaw, serverPitch, mc.player, t);
 
-        // Idle ticks — real mice momentarily stop tracking
-        if (idleTicks > 0) {
-            idleTicks--;
-            lockOnTicks++;
-            if (hitDelay > 0) hitDelay--;
-            return;
-        }
-        if (cleanAngle < 10f && rng.nextFloat() < 0.10f)
-            idleTicks = 1 + rng.nextInt(2);
+        if (idleTicks > 0) { idleTicks--; lockOnTicks++; if (hitDelay > 0) hitDelay--; return; }
+        if (cleanAngle < 10f && rng.nextFloat() < 0.10f) idleTicks = 1 + rng.nextInt(2);
 
-        // Jitter ±0.35° yaw / ±0.20° pitch, refresh every 8–16 ticks
         if (--jitterTimer <= 0) {
             jitterYaw   = (rng.nextFloat() - 0.5f) * 0.70f;
             jitterPitch = (rng.nextFloat() - 0.5f) * 0.40f;
             jitterTimer = 8 + rng.nextInt(9);
         }
 
-        // Overshoot / correct — 2-tick cycle like LiquidBounce's aim smoothing
         float osYaw = 0f, osPitch = 0f;
         if (correcting) {
-            osYaw = -overshootYaw; osPitch = -overshootPitch;
-            correcting = false;
+            osYaw = -overshootYaw; osPitch = -overshootPitch; correcting = false;
         } else if (cleanAngle > 3f && cleanAngle < 20f && rng.nextFloat() < 0.08f) {
             overshootYaw = (rng.nextFloat() - 0.5f) * 3.5f;
             overshootPitch = (rng.nextFloat() - 0.5f) * 2.0f;
-            osYaw = overshootYaw; osPitch = overshootPitch;
-            correcting = true;
+            osYaw = overshootYaw; osPitch = overshootPitch; correcting = true;
         }
 
         float tYaw   = ideal[0] + jitterYaw + osYaw;
         float tPitch = MathHelper.clamp(ideal[1] + jitterPitch + osPitch, -90f, 90f);
 
-        // Distance-adaptive smooth step — mirrors LiquidBounce's speed variance
-        float sY, sP;
-        if      (cleanAngle > 15f) { sY = 7f  + rng.nextFloat() * 5f;   sP = 5f  + rng.nextFloat() * 4f; }
-        else if (cleanAngle >  5f) { sY = 3f  + rng.nextFloat() * 4f;   sP = 2f  + rng.nextFloat() * 3f; }
-        else                        { sY = 0.8f + rng.nextFloat() * 1.8f; sP = 0.6f + rng.nextFloat() * 1.2f; }
+        // Interpolation factor — fast when far, gentle micro-correction when close
+        float factor;
+        if      (cleanAngle > 15f) factor = 0.32f + rng.nextFloat() * 0.13f;
+        else if (cleanAngle >  5f) factor = 0.18f + rng.nextFloat() * 0.10f;
+        else                        factor = 0.08f + rng.nextFloat() * 0.07f;
 
-        serverYaw   = smoothStep(prevSrvYaw,   tYaw,   sY);
-        serverPitch = smoothStep(prevSrvPitch, tPitch, sP);
+        serverYaw   = lerpAngle(prevSrvYaw,   tYaw,   factor);
+        serverPitch = lerpAngle(prevSrvPitch, tPitch, factor * 0.75f);
 
         // GCD quantization + 15 % sub-GCD noise
         float gcd    = getGcd(mc);
@@ -343,44 +340,50 @@ public class AutoPvP extends Module {
         prevSrvYaw   = serverYaw;
         prevSrvPitch = serverPitch;
 
-        // Keep body/head visually facing target — MC may reset bodyYaw during
-        // player tick if it doesn't match the movement direction.
         mc.player.setHeadYaw(serverYaw);
         mc.player.bodyYaw = serverYaw;
-
         lockOnTicks++;
     }
 
-    // ── Circle-strafe ─────────────────────────────────────────────────────────
+    // ── Strafe (real keyboard input) ──────────────────────────────────────────
+    // Player faces the target via silent aim. Pressing A/D strafes perpendicular
+    // to that facing direction — naturally orbiting around the target, just like
+    // a real PvP player. No velocity math needed.
 
-    private void tickStrafe(MinecraftClient mc) {
+    private void tickStrafe() {
         if (--strafeSwitchTimer <= 0) {
             strafeDir         = -strafeDir;
             strafeSwitchTimer = 30 + rng.nextInt(50);
-            if (rng.nextFloat() < 0.25f) strafeSwitchTimer += 5 + rng.nextInt(8);
         }
-        double speed = ORBIT_SPEED * (0.85 + rng.nextDouble() * 0.30);
-        orbitAngle  += strafeDir * speed;
 
-        double desiredX = target.getX() + Math.sin(orbitAngle) * ORBIT_RADIUS;
-        double desiredZ = target.getZ() + Math.cos(orbitAngle) * ORBIT_RADIUS;
-        double dx = desiredX - mc.player.getX();
-        double dz = desiredZ - mc.player.getZ();
-        double dist = Math.sqrt(dx * dx + dz * dz);
-        if (dist < 0.05) return;
+        // Strafe perpendicular to facing (which is always pointing at target)
+        kLeft  = (strafeDir > 0);
+        kRight = (strafeDir < 0);
+        kSprint = true;
 
-        double mv = 0.20 * (0.90 + rng.nextDouble() * 0.20) * Math.min(dist, 1.0);
-        Vec3d vel = mc.player.getVelocity();
-        mc.player.setVelocity(vel.x * 0.6 + dx / dist * mv, vel.y, vel.z * 0.6 + dz / dist * mv);
-        mc.player.setSprinting(true);
+        // Maintain range: press W if drifting too far, back off if too close
+        if (target != null) {
+            MinecraftClient mc = mc();
+            if (mc != null && mc.player != null) {
+                double dist = Math.sqrt(mc.player.squaredDistanceTo(target));
+                if (dist > range.getValue() + 0.8) {
+                    kForward = true;   // close the gap
+                } else if (dist < range.getValue() - 0.5) {
+                    kBack    = true;   // too close, back off
+                    kForward = false;
+                }
+            }
+        }
     }
 
-    // ── W-tap ─────────────────────────────────────────────────────────────────
+    // ── W-tap (real keyboard input) ───────────────────────────────────────────
+    // Briefly releases the sprint key every ~0.4–1 s to break the constant
+    // sprinting pattern and temporarily reset knockback resistance.
 
-    private void tickWTap(MinecraftClient mc) {
+    private void tickWTap() {
         if (wTapOffTicks > 0) {
             wTapOffTicks--;
-            mc.player.setSprinting(false);
+            kSprint = false;   // release sprint (W-tap off phase)
             return;
         }
         if (++wTapClock >= wTapInterval) {
@@ -392,27 +395,16 @@ public class AutoPvP extends Module {
 
     // ── Heal ──────────────────────────────────────────────────────────────────
 
-    private void startHeal() {
-        healing      = true;
-        retreatTimer = 20 + rng.nextInt(20);
-        healUseCd    = 0;
-    }
-
-    private int splashWarmup = 0;  // ticks spent facing down before throw
+    private void startHeal() { healing = true; retreatTimer = 20 + rng.nextInt(20); healUseCd = 0; }
 
     private void tickHeal(MinecraftClient mc) {
         if (healUseCd > 0) { healUseCd--; return; }
         int slot = findHealSlot(mc);
         if (slot < 0) { healing = false; return; }
         mc.player.getInventory().selectedSlot = slot;
-
-        ItemStack healItem = mc.player.getInventory().getStack(slot);
-        if (healItem.getItem() instanceof SplashPotionItem) {
-            // Must look straight down so the pot splashes at our feet, not ahead.
-            // Override serverPitch to 85° for 2 warmup ticks so the packet
-            // reaches the server before we throw.
-            serverPitch  = 85f;
-            prevSrvPitch = 85f;
+        ItemStack item = mc.player.getInventory().getStack(slot);
+        if (item.getItem() instanceof SplashPotionItem) {
+            serverPitch = 85f; prevSrvPitch = 85f;
             if (splashWarmup < 2) { splashWarmup++; return; }
             splashWarmup = 0;
         }
@@ -423,23 +415,16 @@ public class AutoPvP extends Module {
     private void tickRetreat(MinecraftClient mc) {
         if (target == null || retreatTimer <= 0) { retreatTimer = 0; return; }
         retreatTimer--;
-        Vec3d toTarget = new Vec3d(
-            target.getX() - mc.player.getX(), 0,
-            target.getZ() - mc.player.getZ()
-        );
-        double dist = toTarget.length();
-        if (dist < 0.1) return;
-        Vec3d away = toTarget.negate().normalize().multiply(0.22);
-        Vec3d vel  = mc.player.getVelocity();
-        mc.player.setVelocity(vel.x + away.x, vel.y, vel.z + away.z);
-        mc.player.setSprinting(true);
+        Vec3d to = new Vec3d(target.getX() - mc.player.getX(), 0, target.getZ() - mc.player.getZ());
+        if (to.length() < 0.1) return;
+        // Real keyboard: face away from target and press W (sprint backward)
+        kBack   = true;
+        kSprint = true;
     }
 
     private int findHealSlot(MinecraftClient mc) {
-        for (int i = 0; i < 9; i++) {
-            ItemStack s = mc.player.getInventory().getStack(i);
-            if (s.getItem() instanceof SplashPotionItem && isHealPotion(s)) return i;
-        }
+        for (int i = 0; i < 9; i++) { var s = mc.player.getInventory().getStack(i);
+            if (s.getItem() instanceof SplashPotionItem && isHealPotion(s)) return i; }
         for (int i = 0; i < 9; i++)
             if (mc.player.getInventory().getStack(i).isOf(Items.ENCHANTED_GOLDEN_APPLE)) return i;
         for (int i = 0; i < 9; i++)
@@ -449,12 +434,12 @@ public class AutoPvP extends Module {
         return -1;
     }
 
-    private static boolean isHealPotion(ItemStack stack) {
-        PotionContentsComponent c = stack.get(DataComponentTypes.POTION_CONTENTS);
+    private static boolean isHealPotion(ItemStack s) {
+        PotionContentsComponent c = s.get(DataComponentTypes.POTION_CONTENTS);
         if (c == null) return false;
-        for (var eff : c.getEffects())
-            if (eff.getEffectType() == StatusEffects.INSTANT_HEALTH
-             || eff.getEffectType() == StatusEffects.REGENERATION) return true;
+        for (var e : c.getEffects())
+            if (e.getEffectType() == StatusEffects.INSTANT_HEALTH
+             || e.getEffectType() == StatusEffects.REGENERATION) return true;
         return false;
     }
 
@@ -462,47 +447,36 @@ public class AutoPvP extends Module {
 
     private void doAttack(MinecraftClient mc, LivingEntity t) {
         boolean wasSprinting = mc.player.isSprinting();
-        mc.player.setSprinting(false);
-        if (robot != null) {
-            robot.mousePress(InputEvent.BUTTON1_DOWN_MASK);
-            robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
-        } else {
-            mc.interactionManager.attackEntity(mc.player, t);
-            mc.player.swingHand(Hand.MAIN_HAND);
-        }
+        mc.player.setSprinting(false);                  // prevent sword sweep AoE
+        mc.interactionManager.attackEntity(mc.player, t);
         mc.player.swingHand(Hand.MAIN_HAND);
         mc.player.setSprinting(wasSprinting);
     }
 
-    // ── Math helpers ──────────────────────────────────────────────────────────
+    // ── Math ──────────────────────────────────────────────────────────────────
 
-    private static float[] rotationsToPoint(PlayerEntity player, double x, double y, double z) {
-        double dx    = x - player.getX();
-        double dy    = y - (player.getY() + player.getEyeHeight(player.getPose()));
-        double dz    = z - player.getZ();
-        double hDist = Math.sqrt(dx * dx + dz * dz);
-        return new float[]{
-            (float) Math.toDegrees(Math.atan2(dz, dx)) - 90f,
-            MathHelper.clamp((float) -Math.toDegrees(Math.atan2(dy, hDist)), -90f, 90f)
-        };
+    private static float lerpAngle(float current, float target, float factor) {
+        float diff = MathHelper.wrapDegrees(target - current);
+        return current + diff * MathHelper.clamp(factor, 0f, 1f);
     }
 
-    private static float smoothStep(float current, float target, float maxStep) {
-        float diff = MathHelper.wrapDegrees(target - current);
-        return current + MathHelper.clamp(diff, -maxStep, maxStep);
+    private static float[] rotationsToPoint(PlayerEntity player, double x, double y, double z) {
+        double dx = x - player.getX();
+        double dy = y - (player.getY() + player.getEyeHeight(player.getPose()));
+        double dz = z - player.getZ();
+        double h  = Math.sqrt(dx * dx + dz * dz);
+        return new float[]{
+            (float) Math.toDegrees(Math.atan2(dz, dx)) - 90f,
+            MathHelper.clamp((float) -Math.toDegrees(Math.atan2(dy, h)), -90f, 90f)
+        };
     }
 
     private static float angleFromRot(float yaw, float pitch,
                                       PlayerEntity player, LivingEntity target) {
         double yr = Math.toRadians(yaw), pr = Math.toRadians(pitch);
-        Vec3d look = new Vec3d(
-            -Math.sin(yr) * Math.cos(pr), -Math.sin(pr), Math.cos(yr) * Math.cos(pr)
-        ).normalize();
-        Vec3d eye = new Vec3d(player.getX(),
-            player.getY() + player.getEyeHeight(player.getPose()), player.getZ());
-        Vec3d to = new Vec3d(target.getX(),
-            target.getY() + target.getHeight() * 0.5, target.getZ())
-            .subtract(eye).normalize();
+        Vec3d look = new Vec3d(-Math.sin(yr)*Math.cos(pr), -Math.sin(pr), Math.cos(yr)*Math.cos(pr)).normalize();
+        Vec3d eye  = new Vec3d(player.getX(), player.getY()+player.getEyeHeight(player.getPose()), player.getZ());
+        Vec3d to   = new Vec3d(target.getX(), target.getY()+target.getHeight()*0.5, target.getZ()).subtract(eye).normalize();
         return (float) Math.toDegrees(Math.acos(MathHelper.clamp(look.dotProduct(to), -1.0, 1.0)));
     }
 
@@ -511,11 +485,15 @@ public class AutoPvP extends Module {
         return (float) (f * f * f * 1.2);
     }
 
-    private void resetAimState() {
-        srvRotReady = false; camOverridden = false; correcting = false;
-        jitterTimer = 0; idleTicks = 0; lockOnTicks = 0;
-        prevSrvYaw = 0f; prevSrvPitch = 0f;
+    private void resetAll() {
+        srvRotReady = camOverridden = correcting = false;
+        jitterTimer = idleTicks = lockOnTicks = critState = 0;
+        hitDelay = critCooldown = wTapClock = wTapOffTicks = 0;
+        prevSrvYaw = prevSrvPitch = 0f;
+        target = null; healing = false; holdActive = false;
+        strafeDir = rng.nextBoolean() ? 1 : -1;
+        strafeSwitchTimer = 30 + rng.nextInt(50);
+        wTapInterval = 8 + rng.nextInt(13);
+        kForward = kBack = kLeft = kRight = kSprint = kJump = false;
     }
 }
-
-
