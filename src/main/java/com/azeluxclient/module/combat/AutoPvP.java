@@ -114,7 +114,7 @@ public class AutoPvP extends Module {
     private volatile boolean kFwd, kBack, kLeft, kRight, kSprint, kJump, kUse;
 
     private static final int LOCK_ON  = 4;   // ticks of tracking before first attack attempt
-    private static final int LAG_COMP = 3;   // ticks of lag compensation for prediction
+    private static final int LAG_COMP = 1;   // ticks of lag compensation for prediction
 
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -213,11 +213,11 @@ public class AutoPvP extends Module {
 
         // ── Health gate ───────────────────────────────────────────────────────
         if (eatToHeal.getValue()) {
-            if (!healing && curHp <= 16.0f) {                  // < 8 hearts
+            if (!healing && curHp <= 12.0f) {                  // 6 hearts — less trigger-happy
                 healing      = true;
                 retreatTimer = 20 + rng.nextInt(20);           // 1–2s retreat
             }
-            if (healing  && curHp >= 28.0f) healing = false;  // > 14 hearts
+            if (healing  && curHp >= 18.0f) healing = false;  // 9 hearts (was 28f — impossible)
         }
 
         if (healing) {
@@ -363,8 +363,13 @@ public class AutoPvP extends Module {
             osYaw = overshootYaw; osPitch = overshootPitch; correcting = true;
         }
 
-        float tYaw   = ideal[0] + jitterYaw + osYaw;
-        float tPitch = MathHelper.clamp(ideal[1] + jitterPitch + osPitch, -90f, 90f);
+        // Suppress jitter when within 0.5° of target.
+        // With jitter ON, GCD rounds 0.35° jitter to 0.6° → sentAngle > 0.40° gate → attacks never fire.
+        // With jitter OFF at close range, GCD holds us at ~0.3° from ideal — safely inside
+        // Vulcan Hitbox A (0.42°) AND under the 0.40° attack gate.
+        boolean nearTarget = cleanAngle < 0.5f;
+        float tYaw   = ideal[0] + (nearTarget ? 0 : jitterYaw) + osYaw;
+        float tPitch = MathHelper.clamp(ideal[1] + (nearTarget ? 0 : jitterPitch) + osPitch, -90f, 90f);
 
         // ── Convergence factor — KEY FIX: fast close-range convergence ─────────
         // Old code used 0.08–0.12 for angles < 5°, taking 20+ ticks to hit 0.40° gate.
@@ -619,3 +624,4 @@ public class AutoPvP extends Module {
         kFwd = kBack = kLeft = kRight = kSprint = kJump = kUse = false;
     }
 }
+
