@@ -19,8 +19,8 @@ public class AutoClicker extends Module {
     }
 
     /**
-     * Gaussian-jittered delay, CV ≈ 22 % — matches human clicking stats.
-     * Anti-repeat nudge breaks Vulcan's sequence-pattern checks (G, I, J).
+     * Gaussian-jittered delay in ticks — see AutoClicker comments for full rationale.
+     * CV ≈ 22 %, anti-repeat nudge, 4 % deliberate miss rate.
      */
     private int randomDelay() {
         double base  = 20.0 / cps.getValue();
@@ -43,30 +43,24 @@ public class AutoClicker extends Module {
         if (--ticksLeft > 0) return;
         ticksLeft = randomDelay();
 
-        // ~4 % miss rate — human hesitation
+        // ~4 % deliberate miss rate
         if (rng.nextInt(25) == 0) return;
 
         if (client.player.getAttackCooldownProgress(0f) < 1.0f) return;
 
-        /**
-         * Legit attack via MC's own input system.
-         *
-         * Incrementing attackKey.timesPressed by 1 places exactly one "key
-         * press" event in MC's queue.  On the next call to handleInputEvents()
-         * MC calls wasPressed() → true → runs its full doAttack() path:
-         *   ray-cast to find target, call interactionManager.attackEntity(),
-         *   swing animation, sound — everything a real click produces.
-         *
-         * Why this is better than Robot.mousePress():
-         *   • Works on Android (no java.awt dependency)
-         *   • Guaranteed to go through MC's own attack handler
-         *   • Vulcan sees a normal attack originating from MC's input loop
-         *
-         * Why this is better than direct interactionManager.attackEntity():
-         *   • MC's handleInputEvents() performs ray-casting and targeting —
-         *     the same checks a real click triggers, so there's no shortcut
-         *     that can be fingerprinted server-side.
-         */
+        // ── Legit click via MC's own input handler ──────────────────────────
+        // Incrementing attackKey.timesPressed by 1 is processed by MC's
+        // handleInputEvents() → doAttack() on the NEXT tick, exactly as if
+        // the player physically pressed the left mouse button.
+        //
+        // Why this is better than Robot.mousePress or interactionManager.attackEntity:
+        //   • Robot fails silently on Android and falls back to a direct packet.
+        //   • Direct interactionManager calls bypass MC's targeting/raycast pipeline
+        //     — the attack packet can arrive without a matching click event, which
+        //     Vulcan's BadPackets check can detect.
+        //   • timesPressed goes through handleInputEvents() → the full attack
+        //     pipeline (targeting, swing, cooldown, sprint-reset, all packets)
+        //     fires in the same frame as a real key press — nothing to fingerprint.
         KeyBindingAccessor atk = (KeyBindingAccessor) client.options.attackKey;
         atk.setTimesPressed(atk.getTimesPressed() + 1);
     }
