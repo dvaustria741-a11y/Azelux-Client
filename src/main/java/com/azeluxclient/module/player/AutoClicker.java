@@ -4,6 +4,7 @@ import com.azeluxclient.module.Module;
 import com.azeluxclient.mixin.KeyBindingAccessor;
 import com.azeluxclient.setting.SliderSetting;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.entity.LivingEntity;
 
 import java.util.Random;
 
@@ -15,13 +16,9 @@ public class AutoClicker extends Module {
     private int   prevDelay = -1;
 
     public AutoClicker() {
-        super("AutoClicker", "Automatically left-clicks at a set clicks-per-second.", Category.PLAYER);
+        super("AutoClicker", "Automatically left-clicks at a set CPS — only when a mob or player is in range.", Category.PLAYER);
     }
 
-    /**
-     * Gaussian-jittered delay in ticks — see AutoClicker comments for full rationale.
-     * CV ≈ 22 %, anti-repeat nudge, 4 % deliberate miss rate.
-     */
     private int randomDelay() {
         double base  = 20.0 / cps.getValue();
         double noise = rng.nextGaussian() * base * 0.22;
@@ -48,19 +45,18 @@ public class AutoClicker extends Module {
 
         if (client.player.getAttackCooldownProgress(0f) < 1.0f) return;
 
-        // ── Legit click via MC's own input handler ──────────────────────────
-        // Incrementing attackKey.timesPressed by 1 is processed by MC's
-        // handleInputEvents() → doAttack() on the NEXT tick, exactly as if
-        // the player physically pressed the left mouse button.
-        //
-        // Why this is better than Robot.mousePress or interactionManager.attackEntity:
-        //   • Robot fails silently on Android and falls back to a direct packet.
-        //   • Direct interactionManager calls bypass MC's targeting/raycast pipeline
-        //     — the attack packet can arrive without a matching click event, which
-        //     Vulcan's BadPackets check can detect.
-        //   • timesPressed goes through handleInputEvents() → the full attack
-        //     pipeline (targeting, swing, cooldown, sprint-reset, all packets)
-        //     fires in the same frame as a real key press — nothing to fingerprint.
+        // ── Range check — only click when a mob or player is in the crosshair ──
+        // client.targetedEntity is computed by MC every tick via its own
+        // raycast pipeline and is non-null only when an entity is within
+        // the player's attack reach. This means we never send clicks into
+        // the air, which looks unnatural and wastes the attack cooldown.
+        if (!(client.targetedEntity instanceof LivingEntity target)) return;
+        if (target == client.player) return;
+
+        // ── Legit click via MC's own input handler ───────────────────────────
+        // Incrementing attackKey.timesPressed is processed by MC's own
+        // handleInputEvents() → doAttack() on the next tick, identical to
+        // a real left mouse button press. Nothing to fingerprint.
         KeyBindingAccessor atk = (KeyBindingAccessor) client.options.attackKey;
         atk.setTimesPressed(atk.getTimesPressed() + 1);
     }
