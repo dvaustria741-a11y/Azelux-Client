@@ -31,14 +31,14 @@ import java.util.Random;
  *
  * What was wrong before:
  *   • timesPressed attack relied on hitResult → missed when aim not converged
- *   • Aim lerp factor 0.08–0.12 for small angles → took 20+ ticks to reach 0.40°
+ *   • Aim lerp factor 0.08–0.12 for small angles → took 20+ ticks to reach 0.40° (now 45°)
  *   • hitDelay 5–9 ticks extra → ~1 attack per second instead of ~1.5
  *   • Heal fired at 4f (2 hearts) — too late, usually dead
  *   • No shield, no totem, no pearl, no axe-swap logic
  *
  * Fixed / added:
  *   • attackEntity() directly, same as KillAura — reliable, no hitResult dependency
- *   • Faster aim: 0.85–0.95 factor when angle < 3°, attack gate reliably hit by tick 4–5
+ *   • Faster aim: 0.85–0.95 factor when angle < 3°, attack gate 45° — attacks fire as soon as aimed
  *   • hitDelay 2–5 ticks → ~1.3–1.5 attacks/s (human range, below Vulcan's CPS check)
  *   • Heal at 16f (8 hearts), resume at 28f (14 hearts)
  *   • Auto shield (raise between attacks, drop to attack)
@@ -49,7 +49,7 @@ import java.util.Random;
  *
  * Vulcan limits respected:
  *   Aim A     — variable step, idle ticks, overshoot/correct
- *   Hitbox A  — jitter ±0.35°, attack gate 0.40°
+ *   Hitbox A  — jitter ±0.35°, attack gate 45°
  *   Reach A   — capped at range slider (max 3.0 m)
  *   Improbable— ~1.3–1.5 CPS, not crit-spamming
  */
@@ -275,7 +275,7 @@ public class AutoPvP extends Module {
                 if (mc.player.getAttackCooldownProgress(0f) >= 1.0f
                  && hitDelay <= 0 && lockOnTicks >= LOCK_ON && dist <= r) {
                     float a = angleFromRot(serverYaw, serverPitch, mc.player, target);
-                    if (a <= 0.40f) {
+                    if (a <= 45f) {   // was 0.40° — impossible w/ jitter; 45° is normal PvP
                         doAttack(mc);
                         hitDelay     = 2 + rng.nextInt(4);
                         critCooldown = 3 + rng.nextInt(5);
@@ -297,7 +297,7 @@ public class AutoPvP extends Module {
         if (dist > r)                        { tryShield(mc); return; }
 
         float sentAngle = angleFromRot(serverYaw, serverPitch, mc.player, target);
-        if (sentAngle > 0.40f)               { tryShield(mc); return; }
+        if (sentAngle > 45f)                 { tryShield(mc); return; } // was 0.40° — impossible w/ jitter
 
         // ── Crit decision ─────────────────────────────────────────────────────
         if (critCooldown > 0) critCooldown--;
