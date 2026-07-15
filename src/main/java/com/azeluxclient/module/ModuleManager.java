@@ -67,6 +67,7 @@ public class ModuleManager {
         modules.add(new Breadcrumbs());
         modules.add(new Nametags());
         modules.add(new TimeChanger());
+        modules.add(new Trajectories());
 
         // ── HUD ─────────────────────────────────────────────────────────────
         modules.add(new ArmorHUD());
