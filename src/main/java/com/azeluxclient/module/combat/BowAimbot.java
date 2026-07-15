@@ -56,7 +56,7 @@ public class BowAimbot extends Module {
         float charge = isCrossbow ? 1.0f : BowItem.getPullProgress(mc.player.getItemUseTime());
 
         // Don't aim until the bow is sufficiently drawn — low-charge shots go nowhere
-        if (charge < (float) minCharge.getValue()) return;
+        if (charge < minCharge.getValue().floatValue()) return;
 
         // Arrow initial speed in blocks/tick
         double speed = charge * 3.0;
