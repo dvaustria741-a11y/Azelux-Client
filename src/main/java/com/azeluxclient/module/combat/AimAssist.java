@@ -145,12 +145,20 @@ public class AimAssist extends Module {
         dPitch = (Math.abs(dPitch) >= gcd * 0.5f) ? Math.round(dPitch / gcd) * gcd : 0f;
         if (dYaw == 0f && dPitch == 0f) return;
 
-        // Apply via changeLookDirection — the identical code path used by
-        // Mouse.updateMouse() for real hardware input. changeLookDirection
-        // multiplies its args by 0.15 internally, so we divide by 0.15 to
-        // produce exactly `dYaw` degrees of rotation.
-        // Pitch sign: negative rawDY = pitch decreases = look up.
-        client.player.changeLookDirection(dYaw / 0.15, -dPitch / 0.15);
+        // Set rotation directly with GCD-quantized deltas.
+        //
+        // Why not changeLookDirection:
+        //   changeLookDirection ADDS to current rotation. When the player is
+        //   also moving their mouse in PvP, both deltas stack → overshoot →
+        //   next tick corrects back → overshoot again → up/down oscillation.
+        //
+        // Why this is still Vulcan-safe:
+        //   Vulcan's Aim check inspects the CHANGE between rotation packets,
+        //   not which method produced the change. Our delta is already rounded
+        //   to the nearest GCD step (= minimum real-mouse step), so the packet
+        //   diff looks identical to hardware mouse input.
+        client.player.setYaw(curYaw + dYaw);
+        client.player.setPitch(MathHelper.clamp(curPitch + dPitch, -90f, 90f));
     }
 
     /** Minimum rotation step a real mouse can produce at this sensitivity. */
@@ -164,6 +172,7 @@ public class AimAssist extends Module {
         return from + MathHelper.wrapDegrees(to - from) * t;
     }
 }
+
 
 
 
