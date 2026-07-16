@@ -66,6 +66,8 @@ public class AutoPvP extends Module {
     private final BooleanSetting autoPearl   = register(new BooleanSetting("Ender Pearl",  true));
     private final BooleanSetting autoTotemSet= register(new BooleanSetting("Auto Totem",   true));
     private final BooleanSetting thirdPerson = register(new BooleanSetting("Third Person", true));
+    private final BooleanSetting macePvP     = register(new BooleanSetting("Mace PvP",     false));
+    private final BooleanSetting windLaunch  = register(new BooleanSetting("Wind Charge",  false));
 
     // ── Silent-aim state (mirrors KillAura legit) ─────────────────────────────
     private float   serverYaw, serverPitch;
@@ -91,8 +93,17 @@ public class AutoPvP extends Module {
     private float   lastHealth    = 20f;
     private boolean healing       = false;
     private int     healUseCd     = 0;
+    private int     healCooldown  = 0;  // gap between heal cycles (prevents spam-eating)
     private int     retreatTimer  = 0;
     private int     splashWarmup  = 0;
+
+    // ── Mace PvP ──────────────────────────────────────────────────────────────
+    private static final int MACE_IDLE    = 0;
+    private static final int MACE_FALLING = 1;
+    private static final int MACE_WIND    = 2;
+    private int  maceState    = MACE_IDLE;
+    private int  windChargeCd = 0;
+    private int  maceComboCd  = 0;
 
     // ── Totem ─────────────────────────────────────────────────────────────────
     private int totemTimer = 0;
@@ -215,12 +226,16 @@ public class AutoPvP extends Module {
         }
 
         // ── Health gate ───────────────────────────────────────────────────────
+        if (healCooldown > 0) healCooldown--;
         if (eatToHeal.getValue()) {
-            if (!healing && curHp <= 12.0f) {                  // 6 hearts — less trigger-happy
+            if (!healing && curHp <= 12.0f && healCooldown == 0) {
                 healing      = true;
-                retreatTimer = 20 + rng.nextInt(20);           // 1–2s retreat
+                retreatTimer = 20 + rng.nextInt(20);
             }
-            if (healing  && curHp >= 18.0f) healing = false;  // 9 hearts (was 28f — impossible)
+            if (healing && curHp >= 18.0f) {
+                healing      = false;
+                healCooldown = 50 + rng.nextInt(30); // ~3-4s gap before next heal cycle
+            }
         }
 
         if (healing) {
@@ -290,6 +305,8 @@ public class AutoPvP extends Module {
         // ── Strafe + W-tap ────────────────────────────────────────────────────
         tickStrafe(mc, dist, r);
         tickWTap();
+        tickMacePvP(mc);
+        if (maceState != MACE_IDLE) return; // mace combo in progress, skip normal attack
 
         // ── Crit state machine ────────────────────────────────────────────────
         // critState == 1: we jumped; wait until falling to attack for guaranteed crit
@@ -524,7 +541,8 @@ public class AutoPvP extends Module {
         if (retreatTimer > 0) retreatTimer--;
         if (retreatTimer > 0 || targetNearby) {
             kBack   = true;
-            kSprint = true;
+            // Sprint cancels eating in MC — only sprint when not actively eating
+            kSprint = !mc.player.isUsingItem();
         }
     }
 
@@ -660,6 +678,123 @@ public class AutoPvP extends Module {
         for (int i = 0; i < 9; i++) if (inv.getStack(i).isIn(ItemTags.AXES))   { inv.selectedSlot = i; return; }
     }
 
+    // ── Mace PvP ─────────────────────────────────────────────────────────────────
+
+    /**
+     * Mace PvP with attribute swapping.
+     *
+     * Technique: Hold sword → jump (or wind-charge launch) → while falling,
+     * switch to mace → attack → instantly switch back to sword.
+     *
+     * The game calculates falling-damage bonus from the mace (7× fall height),
+     * but the attack speed / cooldown originated from the sword. Net result:
+     * massive burst damage at normal sword speed.
+     *
+     * Slot convention (matches the guide the user described):
+     *   Slot N   = primary weapon (sword)
+     *   Slot N+1 = mace
+     */
+    private void tickMacePvP(MinecraftClient mc) {
+        if (!macePvP.getValue() || target == null) { maceState = MACE_IDLE; return; }
+        if (maceComboCd > 0) { maceComboCd--; return; }
+        if (windChargeCd > 0) windChargeCd--;
+
+        double dist = Math.sqrt(mc.player.squaredDistanceTo(target));
+
+        switch (maceState) {
+
+            case MACE_IDLE -> {
+                // Conditions: on ground, target reachable, mace in next slot
+                if (!mc.player.isOnGround()) return;
+                if (dist > range.getValue() + 2.5) return;
+
+                int sword = mc.player.getInventory().selectedSlot;
+                int mace  = (sword + 1) % 9;
+                if (!isMace(mc.player.getInventory().getStack(mace))) return;
+
+                if (windLaunch.getValue() && windChargeCd == 0) {
+                    maceState = MACE_WIND;
+                } else {
+                    kJump     = true;   // regular jump
+                    maceState = MACE_FALLING;
+                }
+            }
+
+            case MACE_WIND -> {
+                // Throw wind charge at feet (aimed down) + jump = big upward launch
+                int wcSlot = -1;
+                for (int i = 0; i < 9; i++)
+                    if (mc.player.getInventory().getStack(i).isOf(Items.WIND_CHARGE))
+                        { wcSlot = i; break; }
+
+                if (wcSlot < 0) { maceState = MACE_IDLE; return; } // no wind charge
+
+                int   savedSlot  = mc.player.getInventory().selectedSlot;
+                float savedPitch = serverPitch;
+                float savedPrevP = prevSrvPitch;
+
+                // Aim straight down at feet for max upward push
+                serverPitch  = 85f;
+                prevSrvPitch = 85f;
+                mc.player.setPitch(85f);
+
+                mc.player.getInventory().selectedSlot = wcSlot;
+                mc.interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
+                mc.player.getInventory().selectedSlot = savedSlot;
+
+                // Restore aim
+                serverPitch  = savedPitch;
+                prevSrvPitch = savedPrevP;
+                mc.player.setPitch(savedPitch);
+
+                kJump        = true;
+                windChargeCd = 160 + rng.nextInt(60); // ~10s cooldown
+                maceState    = MACE_FALLING;
+            }
+
+            case MACE_FALLING -> {
+                double yVel    = mc.player.getVelocity().y;
+                boolean falling = !mc.player.isOnGround() && yVel < -0.3;
+
+                if (mc.player.isOnGround()) {
+                    // Landed without attacking — reset
+                    maceState   = MACE_IDLE;
+                    maceComboCd = 30 + rng.nextInt(30);
+                    return;
+                }
+                if (!falling) return;                              // still rising
+                if (dist > range.getValue() + 1.0) return;        // too far
+                if (mc.player.getAttackCooldownProgress(0f) < 1.0f) return;
+
+                // ── ATTRIBUTE SWAP ─────────────────────────────────────────────
+                // Switch to mace → attack → switch BACK to sword, all in ONE tick.
+                int swordSlot = mc.player.getInventory().selectedSlot;
+                int maceSlot  = (swordSlot + 1) % 9;
+
+                // Verify mace is actually there; search hotbar if not
+                if (!isMace(mc.player.getInventory().getStack(maceSlot))) {
+                    maceSlot = -1;
+                    for (int i = 0; i < 9; i++)
+                        if (isMace(mc.player.getInventory().getStack(i))) { maceSlot = i; break; }
+                    if (maceSlot < 0) { maceState = MACE_IDLE; return; }
+                }
+
+                mc.player.getInventory().selectedSlot = maceSlot;  // → mace
+                KeyBindingAccessor atk = (KeyBindingAccessor) mc.options.attackKey;
+                atk.setTimesPressed(atk.getTimesPressed() + 1);    // attack
+                mc.player.getInventory().selectedSlot = swordSlot; // → sword
+
+                maceState   = MACE_IDLE;
+                maceComboCd = 80 + rng.nextInt(40);  // ~5-6s before next combo
+                hitDelay    = 8 + rng.nextInt(5);
+            }
+        }
+    }
+
+    private static boolean isMace(ItemStack s) {
+        return s.isOf(Items.MACE);
+    }
+
     // ── Attack ────────────────────────────────────────────────────────────────
 
     /**
@@ -720,7 +855,8 @@ public class AutoPvP extends Module {
         srvRotReady = camOverridden = correcting = healing = false;
         jitterTimer = idleTicks = lockOnTicks = critState = 0;
         hitDelay = critCooldown = wTapClock = wTapOffTicks = totemTimer = 0;
-        pearlCooldown = shieldPauseTicks = splashWarmup = healUseCd = retreatTimer = 0;
+        pearlCooldown = shieldPauseTicks = splashWarmup = healUseCd = retreatTimer = healCooldown = 0;
+        maceState = MACE_IDLE; windChargeCd = maceComboCd = 0;
         prevSrvYaw = prevSrvPitch = 0f;
         target = null;
         strafeDir         = rng.nextBoolean() ? 1 : -1;
