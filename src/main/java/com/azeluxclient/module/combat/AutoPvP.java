@@ -169,8 +169,7 @@ public class AutoPvP extends Module {
         MinecraftClient mc = mc();
         if (mc != null && mc.player != null) {
             if (camOverridden) {
-                mc.player.setYaw(savedCamYaw);
-                mc.player.setPitch(savedCamPitch);
+                mc.player.setYaw(savedCamYaw); // pitch stays at serverPitch
             }
             if (prevPerspective != null) {
                 mc.options.setPerspective(prevPerspective);
@@ -190,7 +189,8 @@ public class AutoPvP extends Module {
         // Restore visual camera (server rotation already sent in START_CLIENT_TICK)
         if (camOverridden) {
             mc.player.setYaw(savedCamYaw);
-            mc.player.setPitch(savedCamPitch);
+            // entity.pitch stays at serverPitch — no oscillation.
+            // Camera pitch = Freelook.lookPitch (independent via CameraFreelookMixin).
             camOverridden = false;
         }
 
