@@ -98,6 +98,7 @@ public class AutoPvP extends Module {
     private int     healCooldown  = 0;  // gap between heal cycles (prevents spam-eating)
     private int     retreatTimer  = 0;
     private int     splashWarmup  = 0;
+    private int     idleFoodCd    = 0;  // cooldown after each idle food item finishes
 
     // ── Mace PvP ──────────────────────────────────────────────────────────────
     private static final int MACE_IDLE    = 0;
@@ -266,7 +267,14 @@ public class AutoPvP extends Module {
                   : true)
         );
 
-        if (entities.isEmpty()) { target = null; lockOnTicks = 0; return; }
+        if (entities.isEmpty()) {
+            target = null;
+            lockOnTicks = 0;
+            // No enemies nearby — opportunistically eat regular food to refill hunger.
+            // Gapples and potions are NOT consumed here; they are reserved for combat.
+            tickIdleEat(mc);
+            return;
+        }
 
         target = entities.stream()
             .min(Comparator.comparingDouble(e -> e.squaredDistanceTo(mc.player)))
@@ -937,11 +945,65 @@ public class AutoPvP extends Module {
         return (float) (f * f * f * 1.2);
     }
 
+    // ── Idle eating (no combat target) ───────────────────────────────────────
+
+    /**
+     * Eats regular food (steak, bread, etc.) when there is no target and
+     * hunger is below 18 / 9 drumstick icons.
+     *
+     * Rules:
+     *  - Only fires when eatToHeal is enabled and hunger < 18.
+     *  - Never touches golden apples, enchanted golden apples, or potions;
+     *    those are reserved for the combat heal path.
+     *  - Uses kUse = true (hold right-click) so MC's own eat-timer drives
+     *    consumption over 32 ticks — no manual cooldown juggling needed.
+     *  - A short idleFoodCd gap is applied after each item finishes so the
+     *    player isn't robotically eating back-to-back with zero pause.
+     *  - If a target appears mid-eat, kUse resets to false next tick and the
+     *    eat animation cancels naturally (same as a real player dropping food
+     *    to fight).
+     */
+    private void tickIdleEat(MinecraftClient mc) {
+        if (!eatToHeal.getValue()) return;
+        if (idleFoodCd > 0) { idleFoodCd--; return; }
+
+        int hunger = mc.player.getHungerManager().getFoodLevel();
+        if (hunger >= 18) return; // hunger full enough, nothing to do
+
+        int slot = findRegularFoodSlot(mc);
+        if (slot < 0) return; // no regular food in hotbar
+
+        mc.player.getInventory().selectedSlot = slot;
+        kUse = true; // hold right-click; MC handles the 32-tick consume timer
+
+        // When eating just finished (item was consumed), add a small human-like
+        // pause before starting the next piece.
+        if (!mc.player.isUsingItem() && idleFoodCd == 0) {
+            idleFoodCd = 8 + rng.nextInt(12); // 0.4-1.0s pause between bites
+        }
+    }
+
+    /**
+     * Returns the first hotbar slot containing regular food (i.e. a FOOD component,
+     * excluding golden apples — those are reserved for combat healing).
+     */
+    private static int findRegularFoodSlot(MinecraftClient mc) {
+        for (int i = 0; i < 9; i++) {
+            var s   = mc.player.getInventory().getStack(i);
+            var fdc = s.get(DataComponentTypes.FOOD);
+            if (fdc != null
+             && !s.isOf(Items.GOLDEN_APPLE)
+             && !s.isOf(Items.ENCHANTED_GOLDEN_APPLE))
+                return i;
+        }
+        return -1;
+    }
+
     private void resetAll() {
         srvRotReady = camOverridden = correcting = healing = false;
         jitterTimer = idleTicks = lockOnTicks = critState = 0;
         hitDelay = critCooldown = wTapClock = wTapOffTicks = totemTimer = 0;
-        pearlCooldown = shieldPauseTicks = splashWarmup = healUseCd = retreatTimer = healCooldown = 0;
+        pearlCooldown = shieldPauseTicks = splashWarmup = healUseCd = retreatTimer = healCooldown = idleFoodCd = 0;
         maceState = MACE_IDLE; windChargeCd = maceComboCd = 0;
         prevSrvYaw = prevSrvPitch = 0f;
         target = null;
