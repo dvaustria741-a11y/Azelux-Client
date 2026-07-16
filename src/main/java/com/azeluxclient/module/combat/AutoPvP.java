@@ -247,10 +247,24 @@ public class AutoPvP extends Module {
 
         double dist = Math.sqrt(mc.player.squaredDistanceTo(target));
 
-        // ── Ender pearl gap-close (target > 5m, pearl off cooldown) ──────────
-        if (autoPearl.getValue() && dist > 5.0 && pearlCooldown == 0) {
-            int ps = findHotbarItem(mc, Items.ENDER_PEARL);
-            if (ps >= 0) { throwPearl(mc, ps); return; }
+        // ── Ender pearl gap-close ─────────────────────────────────────────────
+        // Only pearl when:
+        //   1. Target is genuinely far (>10 blocks, not just strafing orbit of 5-6m)
+        //   2. Player has good health (>14 hearts) — save pearl for emergency escapes
+        //   3. Target is moving AWAY or standing still (not rushing at us — no need to pearl)
+        if (autoPearl.getValue() && pearlCooldown == 0 && dist > 10.0
+                && mc.player.getHealth() > 14.0f) {
+            // Check target is not rushing toward us (dot product of their velocity vs direction to us)
+            net.minecraft.util.math.Vec3d toPlayer = new net.minecraft.util.math.Vec3d(
+                mc.player.getX() - target.getX(), 0,
+                mc.player.getZ() - target.getZ()).normalize();
+            net.minecraft.util.math.Vec3d tgtVel = target.getVelocity();
+            double rushDot = tgtVel.x * toPlayer.x + tgtVel.z * toPlayer.z;
+            // rushDot > 0.05 means target is moving toward us — don't pearl, they'll come to us
+            if (rushDot <= 0.05) {
+                int ps = findHotbarItem(mc, Items.ENDER_PEARL);
+                if (ps >= 0) { throwPearl(mc, ps); return; }
+            }
         }
 
         // ── Auto-swap to best weapon ──────────────────────────────────────────
@@ -525,16 +539,39 @@ public class AutoPvP extends Module {
     // ── Ender pearl ───────────────────────────────────────────────────────────
 
     private void throwPearl(MinecraftClient mc, int slot) {
+        if (target == null) return;
+
+        // Compute throw rotation: slight upward arc so the pearl clears obstacles
+        float[] rot      = rotationsToPoint(mc.player,
+            target.getX(), target.getY() + target.getHeight() * 0.5, target.getZ());
+        float throwYaw   = rot[0];
+        float throwPitch = net.minecraft.util.math.MathHelper.clamp(rot[1] - 15f, -60f, 60f);
+
+        // IMPORTANT: temporarily apply the throw rotation to the player entity.
+        // interactItem() fires THIS tick — it uses mc.player.getYaw()/getPitch() at call
+        // time to determine projectile direction. Without this, the pearl travels in the
+        // camera/freelook direction (which may be facing backward) instead of at the target.
+        float origYaw   = mc.player.getYaw();
+        float origPitch = mc.player.getPitch();
+        mc.player.setYaw(throwYaw);
+        mc.player.setPitch(throwPitch);
+
         int saved = mc.player.getInventory().selectedSlot;
         mc.player.getInventory().selectedSlot = slot;
-        // Aim slightly downward toward target's feet for proper arc
-        float[] rot = rotationsToPoint(mc.player,
-            target.getX(), target.getY(), target.getZ());
-        serverYaw = rot[0]; serverPitch = Math.min(rot[1] + 10f, 80f);
-        prevSrvYaw = serverYaw; prevSrvPitch = serverPitch;
         mc.interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
         mc.player.getInventory().selectedSlot = saved;
-        pearlCooldown = 25 + rng.nextInt(10); // 1.25–1.75s before next pearl
+
+        // Restore camera immediately — frame hasn't rendered yet so player sees no snap
+        mc.player.setYaw(origYaw);
+        mc.player.setPitch(origPitch);
+
+        // Also update server aim so next tick's rotation packet matches where we threw
+        serverYaw    = throwYaw;
+        serverPitch  = throwPitch;
+        prevSrvYaw   = serverYaw;
+        prevSrvPitch = serverPitch;
+
+        pearlCooldown = 25 + rng.nextInt(10); // ~1.25–1.75 s before next pearl
     }
 
     // ── Weapon selection ──────────────────────────────────────────────────────
