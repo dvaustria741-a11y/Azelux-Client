@@ -24,6 +24,8 @@ import net.minecraft.util.Hand;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.hit.HitResult;
+import net.minecraft.world.RaycastContext;
 
 import java.util.Comparator;
 import java.util.List;
@@ -642,19 +644,68 @@ public class AutoPvP extends Module {
 
     // ── Ender pearl ───────────────────────────────────────────────────────────
 
+    /**
+     * Throws an ender pearl toward the target, but ONLY when the path is clear.
+     *
+     * Bug was: throwPearl aimed directly at target with no obstacle check, so if
+     * the player was near a corner the pearl would immediately hit the wall block.
+     *
+     * Fix — two-phase clearance check before throwing:
+     *
+     *   Phase 1 — Direct LoS: raycast eye → target centre.
+     *             If clear, throw with a gentle -15° upward arc (standard gap-close).
+     *
+     *   Phase 2 — High-arc LoS: if direct path is blocked, check whether a lofted
+     *             path is open by raycasting eye → arc-midpoint → target.
+     *             The arc midpoint is 4 blocks above the higher of the two endpoints,
+     *             halfway horizontally between them. If BOTH legs of that V are clear,
+     *             the pearl can fly over the obstacle; we throw with -40° pitch.
+     *
+     *   Abort: if both phases fail (e.g. the player is wedged in a corner with no
+     *          open sky), set a short retry cooldown instead of wasting the pearl.
+     */
     private void throwPearl(MinecraftClient mc, int slot) {
-        if (target == null) return;
+        if (target == null || mc.world == null) return;
 
-        // Compute throw rotation: slight upward arc so the pearl clears obstacles
-        float[] rot      = rotationsToPoint(mc.player,
-            target.getX(), target.getY() + target.getHeight() * 0.5, target.getZ());
-        float throwYaw   = rot[0];
-        float throwPitch = net.minecraft.util.math.MathHelper.clamp(rot[1] - 15f, -60f, 60f);
+        Vec3d eye    = mc.player.getEyePos();
+        Vec3d tgtMid = new Vec3d(
+            target.getX(),
+            target.getY() + target.getHeight() * 0.5,
+            target.getZ()
+        );
 
-        // IMPORTANT: temporarily apply the throw rotation to the player entity.
-        // interactItem() fires THIS tick — it uses mc.player.getYaw()/getPitch() at call
-        // time to determine projectile direction. Without this, the pearl travels in the
-        // camera/freelook direction (which may be facing backward) instead of at the target.
+        float[] directRot = rotationsToPoint(mc.player, tgtMid.x, tgtMid.y, tgtMid.z);
+        float throwYaw    = directRot[0];
+        float throwPitch;
+
+        // ── Phase 1: direct line of sight ────────────────────────────────────
+        if (pathClear(mc, eye, tgtMid)) {
+            // Clear straight shot — gentle upward arc so pearl clears low ledges
+            throwPitch = MathHelper.clamp(directRot[1] - 15f, -70f, 70f);
+
+        // ── Phase 2: high-arc path (over a corner block / low wall) ──────────
+        } else {
+            // Construct a midpoint 4 blocks above the path's highest point
+            double midX   = (eye.x + tgtMid.x) * 0.5;
+            double midY   = Math.max(eye.y, tgtMid.y) + 4.0;
+            double midZ   = (eye.z + tgtMid.z) * 0.5;
+            Vec3d  arcMid = new Vec3d(midX, midY, midZ);
+
+            if (!pathClear(mc, eye, arcMid) || !pathClear(mc, arcMid, tgtMid)) {
+                // Even a high arc is blocked (e.g. player is inside a tight room).
+                // Abort — don't throw blindly into a wall.
+                pearlCooldown = 6 + rng.nextInt(6); // retry in ~0.3-0.6 s
+                return;
+            }
+            // High arc is open — throw steeply upward to loft over the obstacle
+            throwPitch = MathHelper.clamp(directRot[1] - 40f, -80f, -10f);
+        }
+
+        // ── Throw ─────────────────────────────────────────────────────────────
+        // Temporarily set the player entity's rotation to the computed throw direction.
+        // interactItem() reads mc.player.getYaw()/getPitch() at call time to determine
+        // the projectile's initial velocity vector — we must override this even though
+        // the camera is in freelook mode pointing elsewhere.
         float origYaw   = mc.player.getYaw();
         float origPitch = mc.player.getPitch();
         mc.player.setYaw(throwYaw);
@@ -665,17 +716,31 @@ public class AutoPvP extends Module {
         mc.interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
         mc.player.getInventory().selectedSlot = saved;
 
-        // Restore camera immediately — frame hasn't rendered yet so player sees no snap
+        // Restore camera immediately (frame hasn't rendered yet, no visible snap)
         mc.player.setYaw(origYaw);
         mc.player.setPitch(origPitch);
 
-        // Also update server aim so next tick's rotation packet matches where we threw
+        // Sync server-aim to where we just threw, so the next rotation packet is clean
         serverYaw    = throwYaw;
         serverPitch  = throwPitch;
         prevSrvYaw   = serverYaw;
         prevSrvPitch = serverPitch;
 
-        pearlCooldown = 25 + rng.nextInt(10); // ~1.25–1.75 s before next pearl
+        pearlCooldown = 25 + rng.nextInt(10); // 1.25–1.75 s before next pearl
+    }
+
+    /**
+     * Raycasts from {@code from} to {@code to} through solid blocks only.
+     * Returns true when the path is fully clear (MISS), false when a block is hit first.
+     */
+    private static boolean pathClear(MinecraftClient mc, Vec3d from, Vec3d to) {
+        var hit = mc.world.raycast(new RaycastContext(
+            from, to,
+            RaycastContext.ShapeType.COLLIDER,
+            RaycastContext.FluidHandling.NONE,
+            mc.player
+        ));
+        return hit.getType() == HitResult.Type.MISS;
     }
 
     // ── Weapon selection ──────────────────────────────────────────────────────
@@ -886,5 +951,6 @@ public class AutoPvP extends Module {
         kFwd = kBack = kLeft = kRight = kSprint = kJump = kUse = false;
     }
 }
+
 
 
