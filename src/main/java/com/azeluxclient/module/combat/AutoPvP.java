@@ -513,7 +513,16 @@ public class AutoPvP extends Module {
         if (healUseCd > 0) { healUseCd--; return; }
 
         int slot = findHealSlot(mc);
-        if (slot < 0) { healing = false; return; }
+        if (slot < 0) {
+            // Nothing we can use right now — hunger full with only regular food,
+            // or genuinely no heal items in hotbar.
+            // Exit healing and impose a cooldown so we go back to fighting
+            // instead of re-entering the healing loop every single tick.
+            healing      = false;
+            healCooldown = 40 + rng.nextInt(20); // 2-3s before next heal check
+            splashWarmup = 0;
+            return;
+        }
 
         mc.player.getInventory().selectedSlot = slot;
         ItemStack item = mc.player.getInventory().getStack(slot);
@@ -578,9 +587,21 @@ public class AutoPvP extends Module {
         // 6. Golden apple
         for (int i = 0; i < 9; i++)
             if (mc.player.getInventory().getStack(i).isOf(Items.GOLDEN_APPLE)) return i;
-        // 7. Any food
-        for (int i = 0; i < 9; i++)
-            if (mc.player.getInventory().getStack(i).contains(DataComponentTypes.FOOD)) return i;
+        // 7. Regular food — only when hunger < 20.
+        //    Steak, bread, etc. CANNOT be eaten at 20/20 hunger; trying to do so
+        //    silently fails and leaves the module stuck in healing=true forever.
+        //    Golden apples (always-edible) were already handled in steps 5-6 above.
+        int hunger = mc.player.getHungerManager().getFoodLevel();
+        if (hunger < 20) {
+            for (int i = 0; i < 9; i++) {
+                var s   = mc.player.getInventory().getStack(i);
+                var fdc = s.get(DataComponentTypes.FOOD);
+                if (fdc != null
+                 && !s.isOf(Items.GOLDEN_APPLE)
+                 && !s.isOf(Items.ENCHANTED_GOLDEN_APPLE))
+                    return i;
+            }
+        }
         return -1;
     }
 
@@ -865,4 +886,5 @@ public class AutoPvP extends Module {
         kFwd = kBack = kLeft = kRight = kSprint = kJump = kUse = false;
     }
 }
+
 
