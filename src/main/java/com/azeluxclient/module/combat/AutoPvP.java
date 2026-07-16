@@ -1,5 +1,6 @@
 package com.azeluxclient.module.combat;
 
+import com.azeluxclient.mixin.KeyBindingAccessor;
 import com.azeluxclient.module.Module;
 import com.azeluxclient.module.movement.Freelook;
 import com.azeluxclient.setting.BooleanSetting;
@@ -10,7 +11,9 @@ import net.minecraft.client.option.Perspective;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.PotionContentsComponent;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.effect.StatusEffect;
 import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
@@ -221,8 +224,16 @@ public class AutoPvP extends Module {
         }
 
         if (healing) {
+            // Bug 3 fix: escape pearl if target is closing in while we heal
+            if (autoPearl.getValue() && pearlCooldown == 0 && target != null) {
+                double healDist = Math.sqrt(mc.player.squaredDistanceTo(target));
+                if (healDist < 5.0) {
+                    int ps = findHotbarItem(mc, Items.ENDER_PEARL);
+                    if (ps >= 0) { throwPearl(mc, ps); return; }
+                }
+            }
             tickHeal(mc);
-            tickRetreat();
+            tickRetreat(mc);  // Bug 1 fix: pass mc + target
             return;
         }
 
@@ -425,14 +436,18 @@ public class AutoPvP extends Module {
             if (rng.nextFloat() < 0.20f) strafeSwitchTimer += 5 + rng.nextInt(8); // micro-pause
         }
 
-        if (dist > r + 0.5) {
-            // Too far — sprint toward target
-            kFwd = true; kSprint = true;
-        } else if (dist < r - 0.5) {
-            // Too close — back off, no sprint
-            kBack = true;
+        if (dist > r + 0.3) {
+            // Too far — sprint straight toward target, no strafing so gap closes fast
+            kFwd   = true;
+            kLeft  = false;
+            kRight = false;
+            kSprint = true;
+        } else if (dist < r - 0.4) {
+            // Too close — back off
+            kBack   = true;
+            kSprint = false;
         } else {
-            // In range — circle-strafe
+            // In range deadzone — circle-strafe
             kLeft  = (strafeDir >  0);
             kRight = (strafeDir < 0);
             kSprint = true;
@@ -468,46 +483,96 @@ public class AutoPvP extends Module {
     // ── Heal ──────────────────────────────────────────────────────────────────
 
     private void tickHeal(MinecraftClient mc) {
-        kUse = false; // don't accidentally shield/eat via use-key; we call interactItem directly
+        // Bug 2 fix: old code called interactItem() every 18-28 ticks but food
+        // takes 32 ticks to eat — it kept restarting the eating animation.
+        //
+        // New approach:
+        //   Splash potions → interactItem() once (instant throw), short cooldown.
+        //   Food / gapples / drinkable potions → hold kUse = true every tick.
+        //     MC's handleInputEvents() keeps sending use packets automatically,
+        //     and the server lets the item consume naturally after 32 ticks.
+        //     No manual cooldown needed — isUsingItem() drives it.
+
         if (healUseCd > 0) { healUseCd--; return; }
 
         int slot = findHealSlot(mc);
-        if (slot < 0) { healing = false; return; } // nothing found, give up
+        if (slot < 0) { healing = false; return; }
 
         mc.player.getInventory().selectedSlot = slot;
         ItemStack item = mc.player.getInventory().getStack(slot);
 
-        // Splash potion: aim down at feet before throwing (2 warmup ticks)
         if (item.getItem() instanceof SplashPotionItem) {
+            // Throw: aim down at feet before throwing
+            kUse = false;
             serverPitch = 80f; prevSrvPitch = 80f;
             if (splashWarmup < 2) { splashWarmup++; return; }
             splashWarmup = 0;
+            mc.interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
+            healUseCd = 8 + rng.nextInt(5); // instant use
+        } else {
+            // Food / gapple / drinkable potion — hold right-click every tick.
+            // MC handles the 32-tick consume timer; we never interrupt it.
+            kUse = true;
         }
-
-        mc.interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
-        healUseCd = 18 + rng.nextInt(10); // wait ~0.9–1.4s before next use attempt
     }
 
-    private void tickRetreat() {
-        if (retreatTimer <= 0) return;
-        retreatTimer--;
-        kBack   = true;
-        kSprint = true;
+    private void tickRetreat(MinecraftClient mc) {
+        // Bug 1 fix: retreat while the target is within 8 m, not just for the
+        // initial timer. Old code stopped after 1-2 s and the player stood still.
+        boolean targetNearby = target != null
+            && Math.sqrt(mc.player.squaredDistanceTo(target)) < 8.0;
+        if (retreatTimer > 0) retreatTimer--;
+        if (retreatTimer > 0 || targetNearby) {
+            kBack   = true;
+            kSprint = true;
+        }
     }
 
     private int findHealSlot(MinecraftClient mc) {
-        // Priority: splash instant-health / regen → enchanted gapple → gapple → food
+        // Bug 4 fix: prioritise buff potions before healing items.
+        // Priority: Fire Resistance → Speed → splash heal/regen → EGapple → Gapple → food.
+
+        // 1. Fire Resistance (splash or drinkable) — only if we don't already have it
+        if (!mc.player.hasStatusEffect(StatusEffects.FIRE_RESISTANCE)) {
+            for (int i = 0; i < 9; i++)
+                if (isPotionWith(mc.player.getInventory().getStack(i), StatusEffects.FIRE_RESISTANCE))
+                    return i;
+        }
+        // 2. Speed (splash or drinkable) — only if we don't already have it
+        if (!mc.player.hasStatusEffect(StatusEffects.SPEED)) {
+            for (int i = 0; i < 9; i++)
+                if (isPotionWith(mc.player.getInventory().getStack(i), StatusEffects.SPEED))
+                    return i;
+        }
+        // 3. Splash instant-health / regeneration
         for (int i = 0; i < 9; i++) {
             var s = mc.player.getInventory().getStack(i);
             if (s.getItem() instanceof SplashPotionItem && isHealPotion(s)) return i;
         }
+        // 4. Drinkable instant-health / regeneration
+        for (int i = 0; i < 9; i++) {
+            var s = mc.player.getInventory().getStack(i);
+            if (!(s.getItem() instanceof SplashPotionItem) && isHealPotion(s)) return i;
+        }
+        // 5. Enchanted golden apple
         for (int i = 0; i < 9; i++)
             if (mc.player.getInventory().getStack(i).isOf(Items.ENCHANTED_GOLDEN_APPLE)) return i;
+        // 6. Golden apple
         for (int i = 0; i < 9; i++)
             if (mc.player.getInventory().getStack(i).isOf(Items.GOLDEN_APPLE)) return i;
+        // 7. Any food
         for (int i = 0; i < 9; i++)
             if (mc.player.getInventory().getStack(i).contains(DataComponentTypes.FOOD)) return i;
         return -1;
+    }
+
+    /** True if the ItemStack is any potion (splash or drinkable) containing the given effect. */
+    private static boolean isPotionWith(ItemStack s, RegistryEntry<StatusEffect> effect) {
+        PotionContentsComponent c = s.get(DataComponentTypes.POTION_CONTENTS);
+        if (c == null) return false;
+        for (var e : c.getEffects())
+            if (e.getEffectType() == effect) return true;
+        return false;
     }
 
     private static boolean isHealPotion(ItemStack s) {
@@ -605,8 +670,11 @@ public class AutoPvP extends Module {
         kUse = false; // drop shield before attacking
         boolean wasSprint = mc.player.isSprinting();
         mc.player.setSprinting(false); // prevent sweep AoE
-        mc.interactionManager.attackEntity(mc.player, target);
-        mc.player.swingHand(Hand.MAIN_HAND);
+        // Same legit approach as AutoClicker: increment timesPressed so MC's
+        // own handleInputEvents() fires doAttack() next tick — identical to
+        // a real left mouse button press, nothing to fingerprint.
+        KeyBindingAccessor atk = (KeyBindingAccessor) mc.options.attackKey;
+        atk.setTimesPressed(atk.getTimesPressed() + 1);
         mc.player.setSprinting(wasSprint);
     }
 
