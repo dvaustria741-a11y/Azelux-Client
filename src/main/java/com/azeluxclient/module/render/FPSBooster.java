@@ -3,27 +3,18 @@ package com.azeluxclient.module.render;
 import com.azeluxclient.module.Module;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.GraphicsMode;
-import net.minecraft.client.option.ParticlesMode;
+import net.minecraft.particle.ParticlesMode;
 
 /**
  * FPSBooster — saves your current graphics settings, applies aggressive
  * mobile-friendly optimisations on enable, and restores everything on disable.
  *
- * Changes applied:
- *   1. View distance       → 4 chunks  (biggest single FPS gain)
- *   2. Simulation distance → 4 chunks  (fewer block-tick / entity updates)
- *   3. Graphics mode       → Fast      (no smooth lighting / fancy foliage)
- *   4. Particles           → Minimal   (almost zero particle effects)
- *   5. Entity distance     → 50 %      (entities vanish at half normal range)
- *   6. Ambient occlusion   → Off       (saves lighting calculation passes)
- *
- * In 1.21.x Yarn all GameOptions settings are private SimpleOption<T> —
- * they are accessed via getViewDistance(), getParticles(), etc. and mutated
- * via .setValue() on the returned SimpleOption, NOT direct field assignment.
+ * In 1.21.x Yarn:
+ *   - ParticlesMode is in net.minecraft.particle (not client.option)
+ *   - All GameOptions settings are private SimpleOption<T>; use getX().setValue()
  */
 public class FPSBooster extends Module {
 
-    // ── Saved original values ─────────────────────────────────────────────────
     private int          savedViewDist;
     private int          savedSimDist;
     private GraphicsMode savedGraphics;
@@ -39,14 +30,12 @@ public class FPSBooster extends Module {
         MinecraftClient mc = mc();
         if (mc == null || mc.options == null) return;
 
-        // Save originals via the public getter methods
         savedViewDist   = mc.options.getViewDistance().getValue();
         savedSimDist    = mc.options.getSimulationDistance().getValue();
         savedGraphics   = mc.options.getGraphicsMode().getValue();
         savedParticles  = mc.options.getParticles().getValue();
         savedEntityDist = mc.options.getEntityDistanceScaling().getValue();
 
-        // Apply booster settings via .setValue() on each SimpleOption
         mc.options.getViewDistance().setValue(4);
         mc.options.getSimulationDistance().setValue(4);
         mc.options.getGraphicsMode().setValue(GraphicsMode.FAST);
@@ -72,5 +61,5 @@ public class FPSBooster extends Module {
         if (mc.worldRenderer != null) mc.worldRenderer.scheduleTerrainUpdate();
     }
 
-    @Override public void onTick(MinecraftClient mc) { /* settings changed once on toggle */ }
+    @Override public void onTick(MinecraftClient mc) {}
 }
