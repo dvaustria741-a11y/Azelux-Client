@@ -565,6 +565,35 @@ public class AutoPvP extends Module {
         }
     }
 
+    /**
+     * Tries to find an empty hotbar slot (0-8).
+     * Falls back to slot 8 if all slots are occupied.
+     */
+    private int findEmptyHotbarSlot(MinecraftClient mc) {
+        for (int i = 0; i < 9; i++)
+            if (mc.player.getInventory().getStack(i).isEmpty()) return i;
+        return 8;
+    }
+
+    /**
+     * Moves an item from main inventory (slots 9-35) to the hotbar via SWAP.
+     * In PlayerScreenHandler, inventory slots 9-35 map 1-to-1 to screen slots 9-35.
+     * SWAP action exchanges that screen slot with hotbar slot N (button = 0-8).
+     * Returns the hotbar slot index where the item now lives, or -1 on failure.
+     */
+    private int swapInventoryToHotbar(MinecraftClient mc, int inventorySlot) {
+        int hotbarTarget = findEmptyHotbarSlot(mc);
+        // Screen slot = inventory slot for slots 9-35 in PlayerScreenHandler
+        mc.interactionManager.clickSlot(
+            mc.player.playerScreenHandler.syncId,
+            inventorySlot,   // screen slot matches inventory slot for 9-35
+            hotbarTarget,    // button = hotbar slot to swap with
+            SlotActionType.SWAP,
+            mc.player
+        );
+        return hotbarTarget;
+    }
+
     private int findHealSlot(MinecraftClient mc) {
         // Bug 4 fix: prioritise buff potions before healing items.
         // Priority: Fire Resistance → Speed → splash heal/regen → EGapple → Gapple → food.
