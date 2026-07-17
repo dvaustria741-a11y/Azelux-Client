@@ -32,13 +32,13 @@ public class FPSBooster extends Module {
 
         savedViewDist   = mc.options.getViewDistance().getValue();
         savedSimDist    = mc.options.getSimulationDistance().getValue();
-        savedGraphics   = mc.options.getGraphicsMode().getValue();
+        savedGraphics   = mc.options.getPreset().getValue();
         savedParticles  = mc.options.getParticles().getValue();
         savedEntityDist = mc.options.getEntityDistanceScaling().getValue();
 
         mc.options.getViewDistance().setValue(4);
         mc.options.getSimulationDistance().setValue(4);
-        mc.options.getGraphicsMode().setValue(GraphicsMode.FAST);
+        mc.options.getPreset().setValue(GraphicsMode.FAST);
         mc.options.getParticles().setValue(ParticlesMode.MINIMAL);
         mc.options.getEntityDistanceScaling().setValue(0.5);
 
@@ -53,7 +53,7 @@ public class FPSBooster extends Module {
 
         mc.options.getViewDistance().setValue(savedViewDist);
         mc.options.getSimulationDistance().setValue(savedSimDist);
-        mc.options.getGraphicsMode().setValue(savedGraphics);
+        mc.options.getPreset().setValue(savedGraphics);
         mc.options.getParticles().setValue(savedParticles);
         mc.options.getEntityDistanceScaling().setValue(savedEntityDist);
 
