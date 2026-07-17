@@ -59,6 +59,7 @@ public class ModuleManager {
 
         // ── Render ──────────────────────────────────────────────────────────
         modules.add(new ESP());
+        modules.add(new FPSBooster());
         modules.add(new Fullbright());
         modules.add(new Zoom());
         modules.add(new Tracers());
