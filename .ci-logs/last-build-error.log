@@ -1,108 +1,84 @@
 Cannot remap modifiers because it does not exists in any of the targets [] or their parents.
 /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:6: error: cannot find symbol
-/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:28: error: cannot find symbol
-/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:41: error: viewDistance has private access in GameOptions
-/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:42: error: simulationDistance has private access in GameOptions
-/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:43: error: cannot find symbol
-/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:44: error: particles has private access in GameOptions
-/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:45: error: entityDistanceScaling has private access in GameOptions
-/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:48: error: viewDistance has private access in GameOptions
-/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:49: error: simulationDistance has private access in GameOptions
-/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:50: error: cannot find symbol
-/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:51: error: cannot find symbol
-/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:51: error: particles has private access in GameOptions
-/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:52: error: entityDistanceScaling has private access in GameOptions
-/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:64: error: viewDistance has private access in GameOptions
-/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:65: error: simulationDistance has private access in GameOptions
-/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:66: error: cannot find symbol
-/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:67: error: particles has private access in GameOptions
-/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:68: error: entityDistanceScaling has private access in GameOptions
+/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:30: error: cannot find symbol
+/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:45: error: cannot find symbol
+/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:52: error: cannot find symbol
+/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:53: error: cannot find symbol
+/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:67: error: cannot find symbol
   /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:6: error: cannot find symbol
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:28: error: cannot find symbol
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:43: error: cannot find symbol
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:50: error: cannot find symbol
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:51: error: cannot find symbol
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:66: error: cannot find symbol
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:41: error: viewDistance has private access in GameOptions
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:42: error: simulationDistance has private access in GameOptions
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:44: error: particles has private access in GameOptions
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:45: error: entityDistanceScaling has private access in GameOptions
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:48: error: viewDistance has private access in GameOptions
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:49: error: simulationDistance has private access in GameOptions
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:51: error: particles has private access in GameOptions
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:52: error: entityDistanceScaling has private access in GameOptions
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:64: error: viewDistance has private access in GameOptions
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:65: error: simulationDistance has private access in GameOptions
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:67: error: particles has private access in GameOptions
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:68: error: entityDistanceScaling has private access in GameOptions
+  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:30: error: cannot find symbol
+  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:53: error: cannot find symbol
+  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:45: error: cannot find symbol
+  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:52: error: cannot find symbol
+  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:67: error: cannot find symbol
 ---FULL TAIL---
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:6: error: cannot find symbol
-  import net.minecraft.client.option.ParticlesOption;
+  location: class FPSBooster
+/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:45: error: cannot find symbol
+        savedGraphics   = mc.options.getGraphicsMode().getValue();
                                     ^
-    symbol:   class ParticlesOption
+  symbol:   method getGraphicsMode()
+  location: variable options of type GameOptions
+/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:52: error: cannot find symbol
+        mc.options.getGraphicsMode().setValue(GraphicsMode.FAST);
+                  ^
+  symbol:   method getGraphicsMode()
+  location: variable options of type GameOptions
+/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:53: error: cannot find symbol
+        mc.options.getParticles().setValue(ParticlesMode.MINIMAL);
+                                           ^
+  symbol:   variable ParticlesMode
+  location: class FPSBooster
+/home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:67: error: cannot find symbol
+        mc.options.getGraphicsMode().setValue(savedGraphics);
+                  ^
+  symbol:   method getGraphicsMode()
+  location: variable options of type GameOptions
+Note: /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/HudRenderer.java uses or overrides a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+6 errors
+
+> Task :compileJava FAILED
+
+[Incubating] Problems report is available at: file:///home/runner/work/Azelux-Client/Azelux-Client/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':compileJava' (registered by plugin class 'org.gradle.api.plugins.JavaBasePlugin').
+> Compilation failed; see the compiler output below.
+  Note: /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/gui/HudRenderer.java uses or overrides a deprecated API.
+  Note: Recompile with -Xlint:deprecation for details.
+  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:6: error: cannot find symbol
+  import net.minecraft.client.option.ParticlesMode;
+                                    ^
+    symbol:   class ParticlesMode
     location: package net.minecraft.client.option
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:28: error: cannot find symbol
-      private ParticlesOption savedParticles;
+  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:30: error: cannot find symbol
+      private ParticlesMode savedParticles;
               ^
-    symbol:   class ParticlesOption
+    symbol:   class ParticlesMode
     location: class FPSBooster
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:43: error: cannot find symbol
-          savedGraphics   = mc.options.graphicsMode.getValue();
-                                      ^
-    symbol:   variable graphicsMode
-    location: variable options of type GameOptions
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:50: error: cannot find symbol
-          mc.options.graphicsMode.setValue(GraphicsMode.FAST);      // no smooth light / fancy foliage
-                    ^
-    symbol:   variable graphicsMode
-    location: variable options of type GameOptions
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:51: error: cannot find symbol
-          mc.options.particles.setValue(ParticlesOption.MINIMAL);   // almost zero particles
-                                        ^
-    symbol:   variable ParticlesOption
+  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:53: error: cannot find symbol
+          mc.options.getParticles().setValue(ParticlesMode.MINIMAL);
+                                             ^
+    symbol:   variable ParticlesMode
     location: class FPSBooster
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:66: error: cannot find symbol
-          mc.options.graphicsMode.setValue(savedGraphics);
-                    ^
-    symbol:   variable graphicsMode
+  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:45: error: cannot find symbol
+          savedGraphics   = mc.options.getGraphicsMode().getValue();
+                                      ^
+    symbol:   method getGraphicsMode()
     location: variable options of type GameOptions
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:41: error: viewDistance has private access in GameOptions
-          savedViewDist   = mc.options.viewDistance.getValue();
-                                      ^
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:42: error: simulationDistance has private access in GameOptions
-          savedSimDist    = mc.options.simulationDistance.getValue();
-                                      ^
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:44: error: particles has private access in GameOptions
-          savedParticles  = mc.options.particles.getValue();
-                                      ^
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:45: error: entityDistanceScaling has private access in GameOptions
-          savedEntityDist = mc.options.entityDistanceScaling.getValue();
-                                      ^
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:48: error: viewDistance has private access in GameOptions
-          mc.options.viewDistance.setValue(4);            // 4-chunk radius (~9 000 fewer verts)
+  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:52: error: cannot find symbol
+          mc.options.getGraphicsMode().setValue(GraphicsMode.FAST);
                     ^
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:49: error: simulationDistance has private access in GameOptions
-          mc.options.simulationDistance.setValue(4);      // match — no point ticking far chunks
+    symbol:   method getGraphicsMode()
+    location: variable options of type GameOptions
+  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:67: error: cannot find symbol
+          mc.options.getGraphicsMode().setValue(savedGraphics);
                     ^
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:51: error: particles has private access in GameOptions
-          mc.options.particles.setValue(ParticlesOption.MINIMAL);   // almost zero particles
-                    ^
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:52: error: entityDistanceScaling has private access in GameOptions
-          mc.options.entityDistanceScaling.setValue(0.5); // entities disappear at half range
-                    ^
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:64: error: viewDistance has private access in GameOptions
-          mc.options.viewDistance.setValue(savedViewDist);
-                    ^
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:65: error: simulationDistance has private access in GameOptions
-          mc.options.simulationDistance.setValue(savedSimDist);
-                    ^
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:67: error: particles has private access in GameOptions
-          mc.options.particles.setValue(savedParticles);
-                    ^
-  /home/runner/work/Azelux-Client/Azelux-Client/src/main/java/com/azeluxclient/module/render/FPSBooster.java:68: error: entityDistanceScaling has private access in GameOptions
-          mc.options.entityDistanceScaling.setValue(savedEntityDist);
-                    ^
-  18 errors
+    symbol:   method getGraphicsMode()
+    location: variable options of type GameOptions
+  6 errors
 
 * Try:
 > Check your code and dependencies to fix the compilation error(s)
@@ -114,5 +90,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/9.6.1/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 52s
+BUILD FAILED in 51s
 1 actionable task: 1 executed
