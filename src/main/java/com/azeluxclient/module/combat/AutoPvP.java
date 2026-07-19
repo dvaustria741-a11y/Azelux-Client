@@ -99,6 +99,7 @@ public class AutoPvP extends Module {
     private int     retreatTimer  = 0;
     private int     splashWarmup  = 0;
     private int     healSlot      = -1;  // hotbar slot held during eat/drink cycle
+    private int     buffPotionCd  = 0;   // cooldown between proactive buff-potion checks
     private int     idleFoodCd    = 0;  // cooldown after each idle food item finishes
 
     // ── Mace PvP ──────────────────────────────────────────────────────────────
@@ -187,7 +188,7 @@ public class AutoPvP extends Module {
     @Override
     public void onDisable() {
         kFwd = kBack = kLeft = kRight = kSprint = kJump = kUse = false;
-        healSlot = -1; pearlWarmup = 0; pearlSlot = -1;
+        healSlot = -1; pearlWarmup = 0; pearlSlot = -1; buffPotionCd = 0;
         MinecraftClient mc = mc();
         if (mc != null && mc.player != null) {
             if (camOverridden) {
@@ -510,6 +511,98 @@ public class AutoPvP extends Module {
     }
 
     // ── W-tap ─────────────────────────────────────────────────────────────────
+
+    /**
+     * Detects a 1-block step in the current movement direction and presses jump
+     * to hop over it. Called after movement keys are set so kFwd/kLeft/kRight
+     * already reflect this tick's intent.
+     */
+    private void tickObstacleJump(MinecraftClient mc) {
+        if (!mc.player.isOnGround() || kJump) return;
+        if (!kFwd && !kLeft && !kRight && !kBack) return;
+
+        double yr = Math.toRadians(mc.player.getYaw());
+        double mx = 0, mz = 0;
+        if (kFwd)   { mx -= Math.sin(yr); mz += Math.cos(yr); }
+        if (kBack)  { mx += Math.sin(yr); mz -= Math.cos(yr); }
+        if (kLeft)  { mx += Math.cos(yr); mz += Math.sin(yr); }
+        if (kRight) { mx -= Math.cos(yr); mz -= Math.sin(yr); }
+
+        double len = Math.sqrt(mx * mx + mz * mz);
+        if (len < 0.01) return;
+        mx /= len; mz /= len;
+
+        double cx = mc.player.getX() + mx * 0.65;
+        double cz = mc.player.getZ() + mz * 0.65;
+        double fy = mc.player.getY();
+
+        net.minecraft.util.math.BlockPos stepPos =
+            net.minecraft.util.math.BlockPos.ofFloored(cx, fy + 0.5, cz);
+        net.minecraft.util.math.BlockPos headPos =
+            net.minecraft.util.math.BlockPos.ofFloored(cx, fy + 1.8, cz);
+
+        boolean hasStep   = !mc.world.getBlockState(stepPos)
+                               .getCollisionShape(mc.world, stepPos).isEmpty();
+        boolean headClear =  mc.world.getBlockState(headPos)
+                               .getCollisionShape(mc.world, headPos).isEmpty();
+
+        if (hasStep && headClear) kJump = true;
+    }
+
+    /**
+     * Proactively drinks Speed and Fire Resistance potions when a target is
+     * present — regardless of HP. Checks every 3 s, uses one buff per call.
+     * Searches hotbar then main inventory (swaps to hotbar slot if needed).
+     */
+    private void tickBuffPotions(MinecraftClient mc) {
+        if (buffPotionCd > 0) { buffPotionCd--; return; }
+        if (healing || healUseCd > 0) return;
+
+        boolean needSpeed = !mc.player.hasStatusEffect(StatusEffects.SPEED);
+        boolean needFire  = !mc.player.hasStatusEffect(StatusEffects.FIRE_RESISTANCE);
+        if (!needSpeed && !needFire) return;
+
+        for (int pass = 0; pass < 2; pass++) {
+            int lo = (pass == 0) ? 0  : 9;
+            int hi = (pass == 0) ? 9  : 36;
+
+            for (int i = lo; i < hi; i++) {
+                ItemStack s = mc.player.getInventory().getStack(i);
+                if (s.isEmpty()) continue;
+
+                boolean isSpeed = needSpeed && isPotionWith(s, StatusEffects.SPEED);
+                boolean isFire  = needFire  && isPotionWith(s, StatusEffects.FIRE_RESISTANCE);
+                if (!isSpeed && !isFire) continue;
+
+                int hotbarSlot = i;
+                if (i >= 9) {
+                    hotbarSlot = findEmptyHotbarSlot(mc);
+                    mc.interactionManager.clickSlot(
+                        mc.player.playerScreenHandler.syncId,
+                        i, hotbarSlot,
+                        net.minecraft.screen.slot.SlotActionType.SWAP,
+                        mc.player);
+                }
+
+                int savedSlot = mc.player.getInventory().selectedSlot;
+                mc.player.getInventory().selectedSlot = hotbarSlot;
+
+                if (s.getItem() instanceof SplashPotionItem) {
+                    float origP = mc.player.getPitch();
+                    mc.player.setPitch(80f);
+                    mc.interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
+                    mc.player.setPitch(origP);
+                } else {
+                    mc.interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
+                }
+
+                mc.player.getInventory().selectedSlot = savedSlot;
+                buffPotionCd = 60 + rng.nextInt(20);
+                return;
+            }
+        }
+        buffPotionCd = 100; // nothing found — wait before checking again
+    }
 
     private void tickWTap() {
         if (wTapOffTicks > 0) {
