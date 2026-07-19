@@ -98,6 +98,7 @@ public class AutoPvP extends Module {
     private int     healCooldown  = 0;  // gap between heal cycles (prevents spam-eating)
     private int     retreatTimer  = 0;
     private int     splashWarmup  = 0;
+    private int     healSlot      = -1;  // hotbar slot held during eat/drink cycle
     private int     idleFoodCd    = 0;  // cooldown after each idle food item finishes
 
     // ── Mace PvP ──────────────────────────────────────────────────────────────
@@ -115,7 +116,10 @@ public class AutoPvP extends Module {
     private int shieldPauseTicks = 0;  // brief pause before re-raising shield after hit
 
     // ── Ender pearl ───────────────────────────────────────────────────────────
-    private int pearlCooldown = 0;
+    private int pearlCooldown  = 0;
+    private int pearlWarmup    = 0;   // ticks holding pearl slot before throw
+    private int pearlSlot      = -1;
+    private float pearlYaw, pearlPitch;
 
     // ── Movement ──────────────────────────────────────────────────────────────
     private int strafeDir         = 1;
@@ -183,6 +187,7 @@ public class AutoPvP extends Module {
     @Override
     public void onDisable() {
         kFwd = kBack = kLeft = kRight = kSprint = kJump = kUse = false;
+        healSlot = -1; pearlWarmup = 0; pearlSlot = -1;
         MinecraftClient mc = mc();
         if (mc != null && mc.player != null) {
             if (camOverridden) {
@@ -213,6 +218,29 @@ public class AutoPvP extends Module {
 
         // Reset all virtual keys; sub-systems re-assert what they need this tick
         kFwd = kBack = kLeft = kRight = kSprint = kJump = kUse = false;
+
+        // ── Pearl warmup countdown ────────────────────────────────────────────
+        // After throwPearl() stores the direction, we hold the pearl slot for
+        // 2 ticks so the server sees "player switched to pearl and aimed" before
+        // the throw arrives — real human behaviour.
+        if (pearlWarmup > 0 && pearlSlot >= 0) {
+            mc.player.getInventory().selectedSlot = pearlSlot;
+            if (--pearlWarmup == 0) {
+                // Warmup done — actually throw
+                float origYaw   = mc.player.getYaw();
+                float origPitch = mc.player.getPitch();
+                mc.player.setYaw(pearlYaw);
+                mc.player.setPitch(pearlPitch);
+                mc.interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
+                mc.player.setYaw(origYaw);
+                mc.player.setPitch(origPitch);
+                serverYaw = pearlYaw; serverPitch = pearlPitch;
+                prevSrvYaw = serverYaw; prevSrvPitch = serverPitch;
+                pearlCooldown = 25 + rng.nextInt(10);
+                pearlSlot = -1;
+            }
+            return; // hold pearl slot this tick, skip combat
+        }
 
         // ── Damage detection ─────────────────────────────────────────────────
         float curHp = mc.player.getHealth();
@@ -257,7 +285,7 @@ public class AutoPvP extends Module {
 
         // ── Target acquisition ────────────────────────────────────────────────
         double r  = range.getValue();
-        Box    bb = mc.player.getBoundingBox().expand(r + 4.0); // wider scan, attack only within r
+        Box    bb = mc.player.getBoundingBox().expand(50.0);    // 50-block detection; attack gate = r
 
         List<LivingEntity> entities = mc.world.getEntitiesByClass(
             LivingEntity.class, bb,
@@ -520,35 +548,40 @@ public class AutoPvP extends Module {
         //     and the server lets the item consume naturally after 32 ticks.
         //     No manual cooldown needed — isUsingItem() drives it.
 
+        // Maintain selected slot throughout the consume cycle
+        if (healSlot >= 0) mc.player.getInventory().selectedSlot = healSlot;
         if (healUseCd > 0) { healUseCd--; return; }
 
         int slot = findHealSlot(mc);
         if (slot < 0) {
-            // Nothing we can use right now — hunger full with only regular food,
-            // or genuinely no heal items in hotbar.
-            // Exit healing and impose a cooldown so we go back to fighting
-            // instead of re-entering the healing loop every single tick.
             healing      = false;
-            healCooldown = 40 + rng.nextInt(20); // 2-3s before next heal check
+            healSlot     = -1;
+            healCooldown = 40 + rng.nextInt(20);
             splashWarmup = 0;
             return;
         }
 
+        healSlot = slot;
         mc.player.getInventory().selectedSlot = slot;
         ItemStack item = mc.player.getInventory().getStack(slot);
 
         if (item.getItem() instanceof SplashPotionItem) {
-            // Throw: aim down at feet before throwing
             kUse = false;
             serverPitch = 80f; prevSrvPitch = 80f;
             if (splashWarmup < 2) { splashWarmup++; return; }
             splashWarmup = 0;
             mc.interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
-            healUseCd = 8 + rng.nextInt(5); // instant use
+            healUseCd = 8 + rng.nextInt(5);
+            healSlot  = -1;
         } else {
-            // Food / gapple / drinkable potion — hold right-click every tick.
-            // MC handles the 32-tick consume timer; we never interrupt it.
-            kUse = true;
+            // Food / gapple / drinkable potion.
+            // Fix: kUse=true triggers block/entity interaction if crosshair hits
+            // a chest, door, or mob — food never gets consumed.
+            // interactItem() always targets the item in hand regardless of crosshair.
+            if (!mc.player.isUsingItem()) {
+                mc.interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
+            }
+            healUseCd = 36; // 32 ticks to eat + 4 buffer
         }
     }
 
@@ -738,24 +771,14 @@ public class AutoPvP extends Module {
             throwPitch = MathHelper.clamp(directRot[1] - 40f, -80f, -10f);
         }
 
-        // ── Throw ─────────────────────────────────────────────────────────────
-        // Temporarily set the player entity's rotation to the computed throw direction.
-        // interactItem() reads mc.player.getYaw()/getPitch() at call time to determine
-        // the projectile's initial velocity vector — we must override this even though
-        // the camera is in freelook mode pointing elsewhere.
-        float origYaw   = mc.player.getYaw();
-        float origPitch = mc.player.getPitch();
-        mc.player.setYaw(throwYaw);
-        mc.player.setPitch(throwPitch);
-
-        int saved = mc.player.getInventory().selectedSlot;
-        mc.player.getInventory().selectedSlot = slot;
-        mc.interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
-        mc.player.getInventory().selectedSlot = saved;
-
-        // Restore camera immediately (frame hasn't rendered yet, no visible snap)
-        mc.player.setYaw(origYaw);
-        mc.player.setPitch(origPitch);
+        // ── Hold pearl slot for 2 warmup ticks, THEN throw ───────────────────
+        // Real players switch to pearl, hold for a moment, THEN right-click.
+        // Same-tick switch+throw looks like a bot to any observer.
+        pearlSlot   = slot;
+        pearlYaw    = throwYaw;
+        pearlPitch  = throwPitch;
+        pearlWarmup = 2;
+        mc.player.getInventory().selectedSlot = slot; // select pearl now
 
         // Sync server-aim to where we just threw, so the next rotation packet is clean
         serverYaw    = throwYaw;
