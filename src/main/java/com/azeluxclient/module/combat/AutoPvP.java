@@ -344,6 +344,8 @@ public class AutoPvP extends Module {
         // ── Strafe + W-tap ────────────────────────────────────────────────────
         tickStrafe(mc, dist, r);
         tickWTap();
+        tickObstacleJump(mc);   // hop over 1-block steps
+        tickBuffPotions(mc);    // drink speed/fire-res proactively
         tickMacePvP(mc);
         if (maceState != MACE_IDLE) return; // mace combo in progress, skip normal attack
 
