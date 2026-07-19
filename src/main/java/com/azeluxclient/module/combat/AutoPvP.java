@@ -656,6 +656,15 @@ public class AutoPvP extends Module {
             return;
         }
 
+        // If item is in main inventory (not hotbar), stop moving and swap it in
+        if (slot >= 9) {
+            kFwd = kBack = kLeft = kRight = kSprint = kJump = false; // stop all movement
+            int swapped = swapInventoryToHotbar(mc, slot);
+            healSlot  = swapped;
+            healUseCd = 3; // wait 3 ticks for server to acknowledge the swap
+            return;
+        }
+
         healSlot = slot;
         mc.player.getInventory().selectedSlot = slot;
         ItemStack item = mc.player.getInventory().getStack(slot);
@@ -670,13 +679,14 @@ public class AutoPvP extends Module {
             healSlot  = -1;
         } else {
             // Food / gapple / drinkable potion.
-            // Fix: kUse=true triggers block/entity interaction if crosshair hits
-            // a chest, door, or mob — food never gets consumed.
-            // interactItem() always targets the item in hand regardless of crosshair.
+            // interactItem() starts eating regardless of crosshair target.
+            // kUse = true MUST be set every tick so MC keeps the eating animation
+            // going — without it the use key is released and eating stops after 1 tick.
             if (!mc.player.isUsingItem()) {
                 mc.interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
             }
-            healUseCd = 36; // 32 ticks to eat + 4 buffer
+            kUse = true; // hold use key every tick until item is consumed
+            // No healUseCd here — isUsingItem() drives completion naturally
         }
     }
 
@@ -687,9 +697,17 @@ public class AutoPvP extends Module {
             && Math.sqrt(mc.player.squaredDistanceTo(target)) < 8.0;
         if (retreatTimer > 0) retreatTimer--;
         if (retreatTimer > 0 || targetNearby) {
+            // Face toward target so kBack (S key) moves AWAY from them.
+            // Without this serverYaw may be stale and kBack goes the wrong direction.
+            if (target != null) {
+                float[] rot = rotationsToPoint(mc.player,
+                    target.getX(), target.getY() + target.getHeight() * 0.5, target.getZ());
+                serverYaw  = rot[0];
+                prevSrvYaw = rot[0];
+                srvRotReady = true;
+            }
             kBack   = true;
-            // Sprint cancels eating in MC — only sprint when not actively eating
-            kSprint = !mc.player.isUsingItem();
+            kSprint = !mc.player.isUsingItem(); // sprint cancels eating
         }
     }
 
@@ -723,44 +741,42 @@ public class AutoPvP extends Module {
     }
 
     private int findHealSlot(MinecraftClient mc) {
-        // Bug 4 fix: prioritise buff potions before healing items.
-        // Priority: Fire Resistance → Speed → splash heal/regen → EGapple → Gapple → food.
+        // Searches hotbar (0-8) first, then main inventory (9-35) for each category.
+        // Returning slot >= 9 signals tickHeal to stop moving and swap to hotbar first.
+        // Priority: Fire Resistance → Speed → splash heal → drinkable heal → EGapple → Gapple → food.
 
-        // 1. Fire Resistance (splash or drinkable) — only if we don't already have it
+        // 1. Fire Resistance
         if (!mc.player.hasStatusEffect(StatusEffects.FIRE_RESISTANCE)) {
-            for (int i = 0; i < 9; i++)
+            for (int i = 0; i < 36; i++)
                 if (isPotionWith(mc.player.getInventory().getStack(i), StatusEffects.FIRE_RESISTANCE))
                     return i;
         }
-        // 2. Speed (splash or drinkable) — only if we don't already have it
+        // 2. Speed
         if (!mc.player.hasStatusEffect(StatusEffects.SPEED)) {
-            for (int i = 0; i < 9; i++)
+            for (int i = 0; i < 36; i++)
                 if (isPotionWith(mc.player.getInventory().getStack(i), StatusEffects.SPEED))
                     return i;
         }
         // 3. Splash instant-health / regeneration
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < 36; i++) {
             var s = mc.player.getInventory().getStack(i);
             if (s.getItem() instanceof SplashPotionItem && isHealPotion(s)) return i;
         }
         // 4. Drinkable instant-health / regeneration
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < 36; i++) {
             var s = mc.player.getInventory().getStack(i);
             if (!(s.getItem() instanceof SplashPotionItem) && isHealPotion(s)) return i;
         }
         // 5. Enchanted golden apple
-        for (int i = 0; i < 9; i++)
+        for (int i = 0; i < 36; i++)
             if (mc.player.getInventory().getStack(i).isOf(Items.ENCHANTED_GOLDEN_APPLE)) return i;
         // 6. Golden apple
-        for (int i = 0; i < 9; i++)
+        for (int i = 0; i < 36; i++)
             if (mc.player.getInventory().getStack(i).isOf(Items.GOLDEN_APPLE)) return i;
-        // 7. Regular food — only when hunger < 20.
-        //    Steak, bread, etc. CANNOT be eaten at 20/20 hunger; trying to do so
-        //    silently fails and leaves the module stuck in healing=true forever.
-        //    Golden apples (always-edible) were already handled in steps 5-6 above.
+        // 7. Regular food (only when hungry; gapples already handled above)
         int hunger = mc.player.getHungerManager().getFoodLevel();
         if (hunger < 20) {
-            for (int i = 0; i < 9; i++) {
+            for (int i = 0; i < 36; i++) {
                 var s   = mc.player.getInventory().getStack(i);
                 var fdc = s.get(DataComponentTypes.FOOD);
                 if (fdc != null
