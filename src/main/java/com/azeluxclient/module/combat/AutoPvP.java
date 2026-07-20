@@ -346,6 +346,12 @@ public class AutoPvP extends Module {
         tickWTap();
         tickObstacleJump(mc);   // hop over 1-block steps
         tickBuffPotions(mc);    // drink speed/fire-res proactively
+
+        // Eat regular food while closing the gap (target out of attack range).
+        // kUse is reset to false at tick start, so the moment dist <= r this
+        // call is skipped → eating stops → attack gate can fire cleanly.
+        if (dist > r && !healing) tickIdleEat(mc);
+
         tickMacePvP(mc);
         if (maceState != MACE_IDLE) return; // mace combo in progress, skip normal attack
 
