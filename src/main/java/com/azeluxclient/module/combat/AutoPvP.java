@@ -353,23 +353,33 @@ public class AutoPvP extends Module {
         // critState == 1: we jumped; wait until falling to attack for guaranteed crit
         if (critState == 1) {
             kJump = false;
-            boolean falling = !mc.player.isOnGround() && mc.player.getVelocity().y < -0.01;
-            if (falling) {
-                if (mc.player.getAttackCooldownProgress(0f) >= 1.0f
-                 && hitDelay <= 0 && lockOnTicks >= LOCK_ON && dist <= r) {
-                    float a = angleFromRot(serverYaw, serverPitch, mc.player, target);
-                    if (a <= 45f) {   // was 0.40° — impossible w/ jitter; 45° is normal PvP
-                        doAttack(mc);
-                        hitDelay     = 2 + rng.nextInt(4);
-                        critCooldown = 3 + rng.nextInt(5);
+
+            // If target started sprinting while we're in the air, abort the crit.
+            // Staying in critState while they run away means we never attack.
+            double tSpeed = target.getVelocity().horizontalLength();
+            if (tSpeed > 0.15) {
+                critState    = 0;
+                critCooldown = 2; // tiny cooldown so we don't immediately re-jump
+                // fall through to normal attack gate below
+            } else {
+                boolean falling = !mc.player.isOnGround() && mc.player.getVelocity().y < -0.01;
+                if (falling) {
+                    if (mc.player.getAttackCooldownProgress(0f) >= 1.0f
+                     && hitDelay <= 0 && lockOnTicks >= LOCK_ON && dist <= r + 0.3) {
+                        float a = angleFromRot(serverYaw, serverPitch, mc.player, target);
+                        if (a <= 45f) {
+                            doAttack(mc);
+                            hitDelay     = 2 + rng.nextInt(4);
+                            critCooldown = 3 + rng.nextInt(5);
+                        }
                     }
+                    critState = 0;
+                } else if (mc.player.isOnGround()) {
+                    critState = 0; // didn't get airborne in time
                 }
-                critState = 0;
-            } else if (mc.player.isOnGround()) {
-                critState = 0; // didn't get airborne in time, abort
+                tryShield(mc);
+                return;
             }
-            tryShield(mc);
-            return;
         }
 
         // ── Normal attack gate ────────────────────────────────────────────────
@@ -377,7 +387,9 @@ public class AutoPvP extends Module {
         if (mc.player.isUsingItem())                          return; // eating / blocking
         if (hitDelay > 0)    { hitDelay--;  tryShield(mc); return; }
         if (lockOnTicks < LOCK_ON)          { tryShield(mc); return; }
-        if (dist > r)                        { tryShield(mc); return; }
+        // 0.3 m buffer for bounding-box reach — a sprinting target at r+0.2
+        // is still within arm's reach even though centre-to-centre > r.
+        if (dist > r + 0.3)                 { tryShield(mc); return; }
 
         float sentAngle = angleFromRot(serverYaw, serverPitch, mc.player, target);
         if (sentAngle > 45f)                 { tryShield(mc); return; } // was 0.40° — impossible w/ jitter
@@ -385,10 +397,17 @@ public class AutoPvP extends Module {
         // ── Crit decision ─────────────────────────────────────────────────────
         if (critCooldown > 0) critCooldown--;
 
+        // Only crit when target is standing still.
+        // Critting a sprinting target wastes the jump and leaves AutoPvP in the
+        // air while the target runs out of range.
+        double targetHorizSpeed = target.getVelocity().horizontalLength();
+        boolean targetStanding  = targetHorizSpeed < 0.15; // < 0.15 b/t ≈ standing or idle
+
         boolean doCrit = critCooldown == 0
                       && mc.player.isOnGround()
                       && !mc.player.isSneaking()
-                      && rng.nextFloat() < 0.55f; // 55% of attacks are crits
+                      && targetStanding               // <── new condition
+                      && rng.nextFloat() < 0.55f;
 
         if (doCrit) {
             critState = 1;
